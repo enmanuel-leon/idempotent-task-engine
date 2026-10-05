@@ -31,3 +31,13 @@ To achieve simultaneous multi-core instruction execution, the engine supports th
 1. **Multi-Process Worker Pool:** Spawn multiple isolated worker OS processes running `apps/api/src/worker.ts`. BullMQ uses Redis atomic primitives to coordinate job leasing across all parallel processes with zero race conditions.
 2. **Containerized Worker Replicas:** In production (`docker-compose.yml`), scale workers horizontally with `deploy.replicas: 4`.
 3. **Gateway Clustering:** Fastify can be clustered across CPU cores using Node.js `node:cluster`, sharing port 3100 via OS kernel socket balancing.
+
+## Complete Benchmark Command Matrix
+
+| Suite                       | Command                | Profile                               | Target Pass Condition                        |
+| :-------------------------- | :--------------------- | :------------------------------------ | :------------------------------------------- |
+| **High Concurrency**        | `pnpm bench:stress`    | 1,000 req/s for 15s (unique keys)     | Errors < 0.1%, p95 latency < 150ms           |
+| **Chaos Collision**         | `pnpm bench:chaos`     | 1,000 req/s (100 rotating keys)       | Exactly 100 DB transactions, 0 duplicates    |
+| **Realistic Heterogeneous** | `pnpm bench:realistic` | 20 unique + 10 intentional duplicates | 20 transactions created, 10 intercepted      |
+| **Spike Ingestion**         | `pnpm bench:spike`     | 10x traffic surge (80 connections)    | Zero dropped connections, errors < 0.1%      |
+| **Sustained Soak**          | `pnpm bench:soak`      | 30s continuous steady throughput      | Memory delta bounded, p99 stable, zero leaks |

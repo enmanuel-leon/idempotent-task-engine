@@ -20,3 +20,18 @@ Accessible at `http://localhost:5180`.
 - **Manual Reload Button:** Tables and execution history have an explicit refresh button with spinner.
 - **No Raw Emojis:** Exclusively Lucide React vector icons.
 - **Zero Ternaries:** Clean `if/else` and pre-computed branches throughout.
+
+## Historical Deduplication Events Endpoint (`GET /api/v1/events`)
+
+- **Server-Side Pagination:** Accepts `page` (default 1) and `pageSize` (default 10, max 50).
+- **Filtered State:** Optional filter by `status` (`PENDING`, `PROCESSING`, `COMPLETED`, `DEAD_LETTER`).
+- **Standard Envelope:** Returns `{ data: [...], pagination: { total, page, pageSize, totalPages } }`.
+- **Dual-Pane View:** The UI allows seamlessly toggling between the real-time Live SSE Buffer and the historical Paginated Events Ledger.
+
+## Safe Action Guards (Confirmation Modals)
+
+Per AGENTS.md rule 5.3, all native browser dialogs are banned. Accessible confirmation modal components guard:
+
+- **Reset Test Data:** Requires explicit confirmation before executing schema purges.
+- **Dead Letter Queue Replay:** Guards bulk DLQ re-queue operations.
+- **High Concurrency Burst (>= 25x):** Confirms before triggering high-concurrency contention loads.

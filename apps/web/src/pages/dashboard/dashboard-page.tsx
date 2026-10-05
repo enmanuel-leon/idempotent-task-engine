@@ -15,9 +15,13 @@ import {
   Database,
   Trash2,
   ArrowRightLeft,
+  Sparkles,
+  History,
+  Radio,
 } from 'lucide-react';
 import { useDashboardPage } from './use-dashboard-page';
 import { formatCentsToCurrency, cn } from '../../lib/utils';
+import { ConfirmModal } from '../../components/ui/confirm-modal';
 
 export function DashboardPage() {
   const {
@@ -27,22 +31,39 @@ export function DashboardPage() {
     transactions,
     pagination,
     isTransactionsLoading,
-    isSimulatingBurst,
-    isSimulatingScenarioA,
-    isResettingData,
-    isReplayingDlq,
+    events,
+    eventsPagination,
+    isEventsLoading,
+    activeTab,
+    setActiveTab,
     burstConcurrency,
     setBurstConcurrency,
+    isSimulatingBurst,
+    isSimulatingScenarioA,
+    isSimulatingRealistic,
+    isResettingData,
+    isReplayingDlq,
+    isResetConfirmOpen,
+    setIsResetConfirmOpen,
+    isReplayDlqConfirmOpen,
+    setIsReplayDlqConfirmOpen,
+    isBurstConfirmOpen,
+    setIsBurstConfirmOpen,
     handleRunScenarioA,
     handleRunBurst,
-    handleResetTestData,
+    executeBurstRequests,
+    handleRunRealisticWorkload,
+    handleConfirmResetData,
+    handleConfirmReplayDlq,
     handleRefreshTransactions,
     handleToggleFlaky,
     handleToggleDbLatency,
-    handleReplayDlq,
     page,
     handleNextPage,
     handlePrevPage,
+    eventsPage,
+    handleNextEventsPage,
+    handlePrevEventsPage,
   } = useDashboardPage();
 
   let connectionBadge = (
@@ -86,10 +107,53 @@ export function DashboardPage() {
     merchantName = merchant.name;
   }
 
+  const burstModalTitle = 'Dispatch High-Concurrency Burst (' + burstConcurrency + 'x)?';
+  const burstModalDesc =
+    'You are about to dispatch ' +
+    burstConcurrency +
+    ' concurrent HTTP callers with the identical idempotency key simultaneously to test high-contention locking.';
+
   return (
     <div className="min-h-screen bg-[#0A0C10] text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30">
+      {/* Modals for Destructive and High-Impact Actions */}
+      <ConfirmModal
+        isOpen={isResetConfirmOpen}
+        title="Reset All Test Data?"
+        description="This will purge all settled transactions, webhook event audit logs, and flush temporary Redis locks/cache strictly within the task_engine schema. Merchant balance will reset to $10,000.00."
+        confirmLabel="Yes, Reset Data"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={isResettingData}
+        onConfirm={handleConfirmResetData}
+        onClose={() => setIsResetConfirmOpen(false)}
+      />
+
+      <ConfirmModal
+        isOpen={isReplayDlqConfirmOpen}
+        title="Replay Dead Letter Queue Jobs?"
+        description="This will atomically re-queue all dead-lettered jobs from webhooks-dlq back into webhooks-incoming with reset attempt counters."
+        confirmLabel="Replay All DLQ"
+        cancelLabel="Cancel"
+        variant="warning"
+        isLoading={isReplayingDlq}
+        onConfirm={handleConfirmReplayDlq}
+        onClose={() => setIsReplayDlqConfirmOpen(false)}
+      />
+
+      <ConfirmModal
+        isOpen={isBurstConfirmOpen}
+        title={burstModalTitle}
+        description={burstModalDesc}
+        confirmLabel="Launch Burst"
+        cancelLabel="Cancel"
+        variant="primary"
+        isLoading={isSimulatingBurst}
+        onConfirm={executeBurstRequests}
+        onClose={() => setIsBurstConfirmOpen(false)}
+      />
+
       {/* Top Navigation */}
-      <header className="border-b border-slate-800/80 bg-[#0E1017]/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-slate-800/80 bg-[#0E1017]/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
@@ -114,7 +178,7 @@ export function DashboardPage() {
             {connectionBadge}
             <button
               type="button"
-              onClick={handleResetTestData}
+              onClick={() => setIsResetConfirmOpen(true)}
               disabled={isResettingData}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all disabled:opacity-50"
             >
@@ -137,8 +201,8 @@ export function DashboardPage() {
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Interactive Testing Panel */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Merchant Account & Settlement Balance */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Card 1: Settlement Balance */}
           <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs font-mono text-slate-400 uppercase tracking-wider">
@@ -153,14 +217,14 @@ export function DashboardPage() {
                 <span className="font-mono text-[11px] opacity-75">{merchant?.apiKey}</span>
               </p>
             </div>
-            <div className="pt-4 border-t border-slate-850 flex items-center justify-between text-xs font-mono text-slate-400">
+            <div className="pt-3 border-t border-slate-850 flex items-center justify-between text-[11px] font-mono text-slate-400">
               <span>PostgreSQL Namespace</span>
-              <span className="text-indigo-400 font-semibold">schema = task_engine</span>
+              <span className="text-indigo-400 font-semibold">task_engine</span>
             </div>
           </div>
 
-          {/* Test Harness 1: Scenario A (Sequential Idempotency / Cache Hit) */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-3">
+          {/* Card 2: Scenario A (Sequential Idempotency / Cache Hit) */}
+          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-2">
             <div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
                 <span className="flex items-center gap-1.5 text-amber-400 font-medium">
@@ -172,40 +236,36 @@ export function DashboardPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-2">
-                Sends Request 1 (leader queues work), awaits settlement, then immediately sends
-                Request 2 with the identical key to verify instantaneous Redis response cache hit.
+                Sends Req 1 (leader queues work), awaits settlement, then immediately sends Req 2
+                with identical key to verify instant Redis response cache hit.
               </p>
             </div>
             <button
               type="button"
               onClick={handleRunScenarioA}
               disabled={isSimulatingScenarioA}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-mono font-medium bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all disabled:opacity-50"
             >
               <Zap
-                className={cn('w-4 h-4 fill-current', isSimulatingScenarioA && 'animate-spin')}
+                className={cn('w-3.5 h-3.5 fill-current', isSimulatingScenarioA && 'animate-spin')}
               />
-              <span>Test Scenario A (Instant Cache Hit)</span>
+              <span>Test Scenario A (Cache Hit)</span>
             </button>
           </div>
 
-          {/* Test Harness 2: Scenario B (Customizable Concurrent Collision Burst) */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-3">
+          {/* Card 3: Scenario B (Customizable Concurrent Collision Burst) */}
+          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-2">
             <div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
                 <span className="flex items-center gap-1.5 text-indigo-400 font-medium">
                   <Layers className="w-3.5 h-3.5" />
-                  SCENARIO B: CONCURRENCY BURST
+                  SCENARIO B: BURST
                 </span>
                 <span className="text-xs font-mono text-indigo-300 font-bold">
-                  {burstConcurrency}x parallel
+                  {burstConcurrency}x callers
                 </span>
               </div>
-              <div className="my-2 space-y-1">
-                <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-                  <span>Concurrency Level</span>
-                  <span>{burstConcurrency} callers</span>
-                </div>
+              <div className="my-1.5 space-y-1">
                 <input
                   type="range"
                   min="5"
@@ -227,10 +287,40 @@ export function DashboardPage() {
               type="button"
               onClick={handleRunBurst}
               disabled={isSimulatingBurst}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-mono font-medium bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50"
             >
-              <Play className={cn('w-4 h-4 fill-current', isSimulatingBurst && 'animate-spin')} />
-              <span>Fire {burstConcurrency}x Concurrent Burst</span>
+              <Play
+                className={cn('w-3.5 h-3.5 fill-current', isSimulatingBurst && 'animate-spin')}
+              />
+              <span>Fire {burstConcurrency}x Burst</span>
+            </button>
+          </div>
+
+          {/* Card 4: Scenario C (Realistic Multi-Tenant Parallelism Workload) */}
+          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-2">
+            <div>
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+                <span className="flex items-center gap-1.5 text-cyan-400 font-medium">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  SCENARIO C: REALISTIC
+                </span>
+                <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+                  21 Workload Items
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                Fires 15 heterogeneous transactions (varying amounts, refund types, and sources)
+                with 6 intentional duplicates mixed in concurrently.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleRunRealisticWorkload}
+              disabled={isSimulatingRealistic}
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-mono font-medium bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition-all disabled:opacity-50"
+            >
+              <Sparkles className={cn('w-3.5 h-3.5', isSimulatingRealistic && 'animate-spin')} />
+              <span>Run Realistic Workload</span>
             </button>
           </div>
         </div>
@@ -302,7 +392,7 @@ export function DashboardPage() {
               </span>
               <button
                 type="button"
-                onClick={handleReplayDlq}
+                onClick={() => setIsReplayDlqConfirmOpen(true)}
                 disabled={isReplayingDlq || metrics.activeDlqCount === 0}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 disabled:opacity-40 transition-all"
               >
@@ -375,78 +465,204 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Two Columns: Live Deduplication Stream & Ledger Transactions */}
+        {/* Two Columns: Left = Live Feed / Historical Ledger Toggle • Right = Settled Transactions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: Live Deduplication Feed */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-4 flex flex-col h-[460px]">
-            <div className="flex items-center justify-between">
+          {/* Left Column */}
+          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-4 flex flex-col h-[480px]">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-indigo-400" />
-                <h2 className="text-sm font-semibold text-slate-200">Live Deduplication Feed</h2>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('live')}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800',
+                    activeTab === 'live' &&
+                      'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-600',
+                  )}
+                >
+                  <Radio className="w-3.5 h-3.5" />
+                  Live SSE Buffer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('historical')}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800',
+                    activeTab === 'historical' &&
+                      'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-600',
+                  )}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  Historical Event Ledger
+                </button>
               </div>
-              <span className="text-xs font-mono text-slate-400">SSE Sub-Second Stream</span>
+
+              <span className="text-[11px] font-mono text-slate-400">
+                {(() => {
+                  if (activeTab === 'live') {
+                    return 'Sub-second Stream';
+                  }
+                  return 'Server-Side Paginated';
+                })()}
+              </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
-              {metrics.recentFeed.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
-                  <Activity className="w-6 h-6 opacity-30 animate-pulse" />
-                  <p>Awaiting incoming webhook requests...</p>
-                </div>
-              )}
-
-              {metrics.recentFeed.map((item) => {
-                let badgeClass = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
-                let label = 'LEADER (MISS)';
-                if (item.cacheStatus === 'HIT') {
-                  badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-                  label = 'CACHED (HIT)';
-                }
-                if (item.cacheStatus === 'HIT_CONCURRENT') {
-                  badgeClass = 'bg-violet-500/10 text-violet-400 border-violet-500/20';
-                  label = 'CONCURRENT HIT';
-                }
-                if (item.cacheStatus === 'TIMEOUT_CONCURRENT') {
-                  badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-                  label = 'INTERCEPTED (TIMEOUT)';
-                }
-
-                return (
-                  <div
-                    key={item.id}
-                    className="p-3 rounded-lg border border-slate-800/60 bg-[#12141A] flex items-center justify-between gap-3"
-                  >
-                    <div className="space-y-0.5 truncate">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={cn(
-                            'px-1.5 py-0.5 rounded text-[10px] border font-bold',
-                            badgeClass,
-                          )}
-                        >
-                          {label}
-                        </span>
-                        <span className="text-slate-300 font-semibold">{item.eventType}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 truncate">
-                        Key: {item.idempotencyKey}
-                      </div>
-                    </div>
-                    <div className="text-right whitespace-nowrap">
-                      <div className="text-emerald-400 font-medium">
-                        {formatCentsToCurrency(item.amountCents)}
-                      </div>
-                      <div className="text-[10px] text-slate-400">{item.durationMs}ms</div>
-                    </div>
+            {/* Sub-view 1: Live SSE Buffer */}
+            {activeTab === 'live' && (
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
+                {metrics.recentFeed.length === 0 && (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
+                    <Activity className="w-6 h-6 opacity-30 animate-pulse" />
+                    <p>Awaiting incoming webhook requests...</p>
                   </div>
-                );
-              })}
-            </div>
+                )}
+
+                {metrics.recentFeed.map((item) => {
+                  let badgeClass = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+                  let label = 'LEADER (MISS)';
+                  if (item.cacheStatus === 'HIT') {
+                    badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+                    label = 'CACHED (HIT)';
+                  }
+                  if (item.cacheStatus === 'HIT_CONCURRENT') {
+                    badgeClass = 'bg-violet-500/10 text-violet-400 border-violet-500/20';
+                    label = 'CONCURRENT HIT';
+                  }
+                  if (item.cacheStatus === 'TIMEOUT_CONCURRENT') {
+                    badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                    label = 'INTERCEPTED (TIMEOUT)';
+                  }
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-lg border border-slate-800/60 bg-[#12141A] flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-0.5 truncate">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              'px-1.5 py-0.5 rounded text-[10px] border font-bold',
+                              badgeClass,
+                            )}
+                          >
+                            {label}
+                          </span>
+                          <span className="text-slate-300 font-semibold">{item.eventType}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 truncate">
+                          Key: {item.idempotencyKey}
+                        </div>
+                      </div>
+                      <div className="text-right whitespace-nowrap">
+                        <div className="text-emerald-400 font-medium">
+                          {formatCentsToCurrency(item.amountCents)}
+                        </div>
+                        <div className="text-[10px] text-slate-400">{item.durationMs}ms</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Sub-view 2: Historical Events Ledger (Server-Side Paginated) */}
+            {activeTab === 'historical' && (
+              <div className="flex-1 flex flex-col justify-between space-y-2">
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
+                  {events.length === 0 && (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
+                      <History className="w-6 h-6 opacity-30" />
+                      <p>No historical events logged in database.</p>
+                    </div>
+                  )}
+
+                  {events.map((evt) => {
+                    let statusBadgeClass = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+                    if (evt.status === 'COMPLETED') {
+                      statusBadgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                    }
+                    if (evt.status === 'DEAD_LETTER') {
+                      statusBadgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                    }
+
+                    return (
+                      <div
+                        key={evt.id}
+                        className="p-3 rounded-lg border border-slate-800/60 bg-[#12141A] flex items-center justify-between gap-3"
+                      >
+                        <div className="space-y-0.5 truncate">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                'px-1.5 py-0.5 rounded text-[10px] border font-bold',
+                                statusBadgeClass,
+                              )}
+                            >
+                              {evt.status}
+                            </span>
+                            <span className="text-slate-300 font-semibold">{evt.eventType}</span>
+                            <span className="text-[10px] text-slate-400">
+                              ({evt.attempts} tries)
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate">
+                            Ref: {evt.reference} • Key: {evt.idempotencyKey}
+                          </div>
+                        </div>
+                        <div className="text-right whitespace-nowrap">
+                          <div className="text-emerald-400 font-medium">
+                            {formatCentsToCurrency(evt.amountCents)}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {new Date(evt.createdAt).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Events Pagination */}
+                {eventsPagination &&
+                  (() => {
+                    let totalP = 1;
+                    if (eventsPagination.totalPages > 0) {
+                      totalP = eventsPagination.totalPages;
+                    }
+                    return (
+                      <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
+                        <span>
+                          Page {eventsPage} of {totalP} ({eventsPagination.total} total)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handlePrevEventsPage}
+                            disabled={eventsPage <= 1 || isEventsLoading}
+                            className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-all"
+                          >
+                            Prev
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleNextEventsPage}
+                            disabled={eventsPage >= eventsPagination.totalPages || isEventsLoading}
+                            className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-all"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+              </div>
+            )}
           </div>
 
-          {/* Right Column: Ledger Transactions Table (Server-Side Paginated) */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-4 flex flex-col h-[460px]">
-            <div className="flex items-center justify-between">
+          {/* Right Column: Ledger Transactions Table */}
+          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-4 flex flex-col h-[480px]">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-emerald-400" />
                 <h2 className="text-sm font-semibold text-slate-200">
@@ -457,7 +673,7 @@ export function DashboardPage() {
                 type="button"
                 onClick={handleRefreshTransactions}
                 disabled={isTransactionsLoading}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono bg-slate-800/80 text-slate-300 hover:bg-slate-750 transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono bg-slate-800 text-slate-300 hover:bg-slate-750 transition-all disabled:opacity-50"
               >
                 <RefreshCw className={cn('w-3 h-3', isTransactionsLoading && 'animate-spin')} />
                 Refresh

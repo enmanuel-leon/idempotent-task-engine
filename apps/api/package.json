@@ -22,7 +22,10 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "db:purge": "tsx scripts/reset.ts",
-    "test:reset": "tsx scripts/reset.ts"
+    "test:reset": "tsx scripts/reset.ts",
+    "bench:realistic": "tsx benchmarks/realistic.ts",
+    "bench:spike": "tsx benchmarks/spike.ts",
+    "bench:soak": "tsx benchmarks/soak.ts"
   },
   "dependencies": {
     "@bull-board/api": "catalog:",

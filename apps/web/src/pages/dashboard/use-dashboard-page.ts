@@ -32,6 +32,30 @@ interface TransactionsResponse {
   };
 }
 
+interface WebhookEventItem {
+  id: string;
+  merchantId: string;
+  idempotencyKey: string;
+  eventType: string;
+  status: string;
+  attempts: number;
+  lastError: string | null;
+  processedAt: string | null;
+  createdAt: string;
+  amountCents: string;
+  reference: string;
+}
+
+interface EventsResponse {
+  data: WebhookEventItem[];
+  pagination: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+}
+
 interface ResetResponse {
   success: boolean;
   transactionsDeleted: number;
@@ -42,9 +66,18 @@ interface ResetResponse {
 
 export function useDashboardPage() {
   const [page, setPage] = useState(1);
+  const [eventsPage, setEventsPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'live' | 'historical'>('live');
   const [burstConcurrency, setBurstConcurrency] = useState(10);
+
   const [isSimulatingBurst, setIsSimulatingBurst] = useState(false);
   const [isSimulatingScenarioA, setIsSimulatingScenarioA] = useState(false);
+  const [isSimulatingRealistic, setIsSimulatingRealistic] = useState(false);
+
+  // Confirmation Modals State
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isReplayDlqConfirmOpen, setIsReplayDlqConfirmOpen] = useState(false);
+  const [isBurstConfirmOpen, setIsBurstConfirmOpen] = useState(false);
 
   const pageSize = 8;
   const queryClient = useQueryClient();
@@ -60,6 +93,13 @@ export function useDashboardPage() {
     queryKey: ['transactions', page],
     queryFn: () =>
       apiFetch<TransactionsResponse>(`/api/v1/transactions?page=${page}&pageSize=${pageSize}`),
+    staleTime: 30000,
+  });
+
+  const eventsQuery = useQuery({
+    queryKey: ['events', eventsPage],
+    queryFn: () =>
+      apiFetch<EventsResponse>(`/api/v1/events?page=${eventsPage}&pageSize=${pageSize}`),
     staleTime: 30000,
   });
 
@@ -99,7 +139,9 @@ export function useDashboardPage() {
     onSuccess: (data) => {
       toast.success(`Replayed ${data.replayedCount} DLQ jobs back into incoming queue`);
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
+      setIsReplayDlqConfirmOpen(false);
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -116,7 +158,9 @@ export function useDashboardPage() {
         `Test data purged: ${data.transactionsDeleted} transactions removed, balance reset to $10,000.00`,
       );
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
+      setIsResetConfirmOpen(false);
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -135,7 +179,6 @@ export function useDashboardPage() {
     const apiKey = merchantQuery.data.apiKey;
 
     try {
-      // 1. Initial Request (Leader)
       const res1 = await fetch('/api/v1/webhooks/epayco', {
         method: 'POST',
         headers: {
@@ -145,18 +188,15 @@ export function useDashboardPage() {
         },
         body: JSON.stringify({
           eventType: 'PAYMENT_SUCCEEDED',
-          amountCents: 2500, // $25.00
+          amountCents: 2500,
           reference: ref,
           metadata: { scenario: 'A' },
         }),
       });
 
       const cacheHeader1 = res1.headers.get('x-cache');
-
-      // Brief delay to allow worker settlement
       await new Promise((resolve) => setTimeout(resolve, 350));
 
-      // 2. Duplicate Request with exact same Idempotency-Key
       const tStart2 = Date.now();
       const res2 = await fetch('/api/v1/webhooks/epayco', {
         method: 'POST',
@@ -186,6 +226,7 @@ export function useDashboardPage() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
     } catch (err) {
       let msg = 'Failed to run Scenario A';
@@ -198,13 +239,15 @@ export function useDashboardPage() {
     }
   };
 
-  const handleRunBurst = async () => {
+  const executeBurstRequests = async () => {
     if (!merchantQuery.data) {
       toast.error('Merchant credentials not loaded');
       return;
     }
 
     setIsSimulatingBurst(true);
+    setIsBurstConfirmOpen(false);
+
     const sharedKey = 'burst_' + Math.random().toString(36).substring(2, 9);
     const reference = 'ref_' + Math.random().toString(36).substring(2, 9);
     const apiKey = merchantQuery.data.apiKey;
@@ -246,6 +289,7 @@ export function useDashboardPage() {
         `Burst ${burstConcurrency}x sent: ${leaderCount} leader queued, ${interceptedCount} duplicate runners intercepted`,
       );
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
     } catch (err) {
       let msg = 'Failed to execute burst';
@@ -258,8 +302,128 @@ export function useDashboardPage() {
     }
   };
 
+  const handleRunBurst = () => {
+    if (burstConcurrency >= 25) {
+      setIsBurstConfirmOpen(true);
+    } else {
+      executeBurstRequests();
+    }
+  };
+
+  const handleRunRealisticWorkload = async () => {
+    if (!merchantQuery.data) {
+      toast.error('Merchant credentials not loaded');
+      return;
+    }
+
+    setIsSimulatingRealistic(true);
+    const apiKey = merchantQuery.data.apiKey;
+    const sources = ['ONLINE_CHECKOUT', 'POS_TERMINAL', 'RECURRING_BILLING', 'MOBILE_APP'];
+    const amounts = [1250, 2499, 4999, 8500, 12000, 25000, 45000];
+
+    interface Item {
+      key: string;
+      ref: string;
+      amount: number;
+      type: 'PAYMENT_SUCCEEDED' | 'CHARGE_REFUNDED';
+      source: string;
+    }
+
+    const items: Item[] = [];
+    for (let i = 0; i < 15; i++) {
+      const source = sources[i % sources.length];
+      const amount = amounts[i % amounts.length];
+      let type: 'PAYMENT_SUCCEEDED' | 'CHARGE_REFUNDED' = 'PAYMENT_SUCCEEDED';
+      if (i % 5 === 0) {
+        type = 'CHARGE_REFUNDED';
+      }
+
+      let finalAmount = amount;
+      if (type === 'CHARGE_REFUNDED') {
+        finalAmount = -amount;
+      }
+
+      items.push({
+        key: 'real_' + Math.random().toString(36).substring(2, 9),
+        ref:
+          'ord_' +
+          source.toLowerCase() +
+          '_' +
+          i +
+          '_' +
+          Math.random().toString(36).substring(2, 6),
+        amount: finalAmount,
+        type,
+        source,
+      });
+    }
+
+    // Add 6 intentional duplicates
+    for (let j = 0; j < 6; j++) {
+      const orig = items[j * 2];
+      items.push({
+        key: orig.key,
+        ref: orig.ref,
+        amount: orig.amount,
+        type: orig.type,
+        source: orig.source,
+      });
+    }
+
+    items.sort(() => Math.random() - 0.5);
+
+    try {
+      const promises = items.map((item) =>
+        fetch('/api/v1/webhooks/epayco', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'idempotency-key': item.key,
+            'x-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            eventType: item.type,
+            amountCents: item.amount,
+            reference: item.ref,
+            metadata: { source: item.source },
+          }),
+        }).then((res) => ({
+          status: res.status,
+          cacheHeader: res.headers.get('x-cache'),
+        })),
+      );
+
+      const results = await Promise.all(promises);
+      let hits = 0;
+      let queued = 0;
+      for (const r of results) {
+        if (r.cacheHeader === 'HIT' || r.cacheHeader === 'HIT_CONCURRENT' || r.status === 504) {
+          hits += 1;
+        } else {
+          queued += 1;
+        }
+      }
+
+      toast.success(
+        `Realistic Workload: ${queued} heterogeneous transactions queued, ${hits} intentional duplicates intercepted!`,
+      );
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    } catch (err) {
+      let msg = 'Failed to run realistic workload';
+      if (err instanceof Error) {
+        msg = err.message;
+      }
+      toast.error(msg);
+    } finally {
+      setIsSimulatingRealistic(false);
+    }
+  };
+
   const handleRefreshTransactions = () => {
     queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    queryClient.invalidateQueries({ queryKey: ['events'] });
     queryClient.invalidateQueries({ queryKey: ['merchant'] });
   };
 
@@ -273,11 +437,11 @@ export function useDashboardPage() {
     toggleDbLatencyMutation.mutate(!currentState);
   };
 
-  const handleReplayDlq = () => {
+  const handleConfirmReplayDlq = () => {
     replayDlqMutation.mutate();
   };
 
-  const handleResetTestData = () => {
+  const handleConfirmResetData = () => {
     resetDataMutation.mutate();
   };
 
@@ -294,6 +458,19 @@ export function useDashboardPage() {
     }
   };
 
+  const handleNextEventsPage = () => {
+    const totalPages = eventsQuery.data?.pagination.totalPages ?? 1;
+    if (eventsPage < totalPages) {
+      setEventsPage(eventsPage + 1);
+    }
+  };
+
+  const handlePrevEventsPage = () => {
+    if (eventsPage > 1) {
+      setEventsPage(eventsPage - 1);
+    }
+  };
+
   return {
     metrics,
     isConnected,
@@ -301,21 +478,38 @@ export function useDashboardPage() {
     transactions: transactionsQuery.data?.data ?? [],
     pagination: transactionsQuery.data?.pagination,
     isTransactionsLoading: transactionsQuery.isFetching,
-    isSimulatingBurst,
-    isSimulatingScenarioA,
-    isResettingData: resetDataMutation.isPending,
-    isReplayingDlq: replayDlqMutation.isPending,
+    events: eventsQuery.data?.data ?? [],
+    eventsPagination: eventsQuery.data?.pagination,
+    isEventsLoading: eventsQuery.isFetching,
+    activeTab,
+    setActiveTab,
     burstConcurrency,
     setBurstConcurrency,
+    isSimulatingBurst,
+    isSimulatingScenarioA,
+    isSimulatingRealistic,
+    isResettingData: resetDataMutation.isPending,
+    isReplayingDlq: replayDlqMutation.isPending,
+    isResetConfirmOpen,
+    setIsResetConfirmOpen,
+    isReplayDlqConfirmOpen,
+    setIsReplayDlqConfirmOpen,
+    isBurstConfirmOpen,
+    setIsBurstConfirmOpen,
     handleRunScenarioA,
     handleRunBurst,
-    handleResetTestData,
+    executeBurstRequests,
+    handleRunRealisticWorkload,
+    handleConfirmResetData,
+    handleConfirmReplayDlq,
     handleRefreshTransactions,
     handleToggleFlaky,
     handleToggleDbLatency,
-    handleReplayDlq,
     page,
     handleNextPage,
     handlePrevPage,
+    eventsPage,
+    handleNextEventsPage,
+    handlePrevEventsPage,
   };
 }

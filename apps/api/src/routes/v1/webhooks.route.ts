@@ -130,7 +130,90 @@ async function handleLeaderExecution(
   });
 }
 
+const eventsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(10),
+  status: z
+    .enum([
+      WEBHOOK_STATUS.PENDING,
+      WEBHOOK_STATUS.PROCESSING,
+      WEBHOOK_STATUS.COMPLETED,
+      WEBHOOK_STATUS.DEAD_LETTER,
+    ])
+    .optional(),
+});
+
 export async function webhooksRoutes(fastify: FastifyInstance) {
+  fastify.get('/events', async (req: FastifyRequest, reply: FastifyReply) => {
+    const query = eventsQuerySchema.parse(req.query);
+    const skip = (query.page - 1) * query.pageSize;
+    const take = query.pageSize;
+
+    const whereClause: { status?: string } = {};
+    if (query.status) {
+      whereClause.status = query.status;
+    }
+
+    const [total, events] = await Promise.all([
+      prisma.webhookEvent.count({ where: whereClause }),
+      prisma.webhookEvent.findMany({
+        where: whereClause,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          transaction: {
+            select: {
+              id: true,
+              amountCents: true,
+              reference: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / query.pageSize);
+
+    const data = events.map((evt) => {
+      let amountDisplay = '0';
+      let refDisplay = 'none';
+      if (evt.transaction) {
+        amountDisplay = evt.transaction.amountCents.toString();
+        refDisplay = evt.transaction.reference;
+      }
+
+      let processedIso: string | null = null;
+      if (evt.processedAt) {
+        processedIso = evt.processedAt.toISOString();
+      }
+
+      return {
+        id: evt.id,
+        merchantId: evt.merchantId,
+        idempotencyKey: evt.idempotencyKey,
+        eventType: evt.eventType,
+        status: evt.status,
+        attempts: evt.attempts,
+        lastError: evt.lastError,
+        processedAt: processedIso,
+        createdAt: evt.createdAt.toISOString(),
+        amountCents: amountDisplay,
+        reference: refDisplay,
+      };
+    });
+
+    return reply.send({
+      data,
+      pagination: {
+        total,
+        page: query.page,
+        pageSize: query.pageSize,
+        totalPages,
+      },
+    });
+  });
+
   fastify.post('/webhooks/epayco', async (req: FastifyRequest, reply: FastifyReply) => {
     const startTime = Date.now();
 

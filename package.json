@@ -31,7 +31,10 @@
     "prepare": "husky",
     "test:coverage": "turbo test:coverage",
     "db:purge": "pnpm --filter api db:purge",
-    "test:reset": "pnpm --filter api test:reset"
+    "test:reset": "pnpm --filter api test:reset",
+    "bench:realistic": "pnpm --filter api bench:realistic",
+    "bench:spike": "pnpm --filter api bench:spike",
+    "bench:soak": "pnpm --filter api bench:soak"
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",
