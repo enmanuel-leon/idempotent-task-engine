@@ -1,0 +1,12 @@
+.git
+.gitignore
+.turbo
+.scannerwork
+.sonar
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log

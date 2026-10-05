@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: app-template
+data:
+  NODE_ENV: 'production'
+  PORT: '3000'
+  HOST: '0.0.0.0'
+  CORS_ORIGIN: 'https://app.example.com'
+  BETTER_AUTH_URL: 'https://api.example.com'
+  VITE_API_URL: 'https://api.example.com'
+  STORAGE_PROVIDER: 'local'
+  STORAGE_BUCKET: 'app-storage'

@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "oxc.oxc-vscode",
+    "lokalise.i18n-ally",
+    "bradlc.vscode-tailwindcss",
+    "prisma.prisma",
+    "dbaeumer.vscode-eslint",
+    "ms-azuretools.vscode-docker"
+  ]
+}

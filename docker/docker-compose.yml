@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: app-template-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_template_db
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d app_template_db']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: app-template-redis-prod
+    restart: unless-stopped
+    volumes:
+      - redis_prod_data:/data
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    container_name: app-template-api
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/app_template_db?schema=public
+      REDIS_URL: redis://redis:6379
+      BETTER_AUTH_SECRET: super-secret-key-change-in-production-min-32-chars
+      BETTER_AUTH_URL: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    container_name: app-template-web
+    restart: unless-stopped
+    ports:
+      - '80:8080'
+    depends_on:
+      - api
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:

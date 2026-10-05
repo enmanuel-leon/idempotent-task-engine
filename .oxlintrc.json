@@ -1,0 +1,47 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "env": { "node": true, "browser": true },
+  "categories": { "correctness": "warn" },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-var": "warn",
+    "prefer-const": "warn",
+    "prefer-rest-params": "warn",
+    "prefer-spread": "warn",
+    "no-array-constructor": "warn",
+    "no-unused-expressions": "warn",
+    "typescript/ban-ts-comment": "warn",
+    "typescript/consistent-type-imports": [
+      "warn",
+      { "prefer": "type-imports", "fixStyle": "inline-type-imports" }
+    ],
+    "typescript/no-duplicate-enum-values": "warn",
+    "typescript/no-empty-object-type": "warn",
+    "typescript/no-explicit-any": "warn",
+    "typescript/no-extra-non-null-assertion": "warn",
+    "typescript/no-misused-new": "warn",
+    "typescript/no-namespace": "warn",
+    "typescript/no-non-null-asserted-optional-chain": "warn",
+    "typescript/no-require-imports": "warn",
+    "typescript/no-this-alias": "warn",
+    "typescript/no-unnecessary-type-constraint": "warn",
+    "typescript/no-unsafe-declaration-merging": "warn",
+    "typescript/no-unsafe-function-type": "warn",
+    "typescript/no-wrapper-object-types": "warn",
+    "typescript/prefer-as-const": "warn",
+    "typescript/prefer-namespace-keyword": "warn",
+    "typescript/triple-slash-reference": "warn"
+  },
+  "ignorePatterns": ["**/dist/**", "**/coverage/**", "**/openwiki/**", "**/node_modules/**"],
+  "overrides": [
+    {
+      "files": ["**/tests/**"],
+      "rules": {
+        "no-unused-vars": "off",
+        "typescript/no-explicit-any": "off",
+        "typescript/no-non-null-assertion": "off"
+      }
+    }
+  ]
+}

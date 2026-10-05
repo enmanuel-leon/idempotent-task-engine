@@ -1,0 +1,19 @@
+{
+  "app": {
+    "title": "Idempotent Task Engine",
+    "subtitle": "Exactly-Once Distributed Ingestion Gateway",
+    "liveStream": "LIVE STREAM",
+    "connecting": "CONNECTING"
+  },
+  "metrics": {
+    "throughput": "Throughput",
+    "deduplication": "Deduplication Efficiency",
+    "latency": "Latency (p95 / p99)",
+    "dlq": "Dead Letter Queue"
+  },
+  "chaos": {
+    "title": "Chaos Engineering Injection Switches",
+    "flakyGateway": "Downstream Bank Gateway Chaos",
+    "dbLatency": "PostgreSQL Latency Spike Chaos"
+  }
+}

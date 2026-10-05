@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model MerchantAccount {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  apiKey       String         @unique @map("api_key") @db.VarChar(128)
+  name         String         @db.VarChar(100)
+  balanceCents BigInt         @default(0) @map("balance_cents")
+  currency     String         @default("USD") @db.VarChar(3)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  transactions Transaction[]
+  events       WebhookEvent[]
+
+  @@map("merchant_account")
+}
+
+model Transaction {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchantId     String          @map("merchant_id") @db.Uuid
+  webhookEventId String          @unique @map("webhook_event_id") @db.Uuid
+  amountCents    BigInt          @map("amount_cents")
+  reference      String          @unique @db.VarChar(100)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  merchant       MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  webhookEvent   WebhookEvent    @relation(fields: [webhookEventId], references: [id], onDelete: Restrict)
+
+  @@index([merchantId])
+  @@map("transaction")
+}
+
+model WebhookEvent {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchantId     String          @map("merchant_id") @db.Uuid
+  idempotencyKey String          @map("idempotency_key") @db.VarChar(255)
+  eventType      String          @map("event_type") @db.VarChar(50)
+  status         String          @default("PENDING") @db.VarChar(20)
+  payload        Json
+  responseBody   Json?           @map("response_body")
+  attempts       Int             @default(0)
+  lastError      String?         @map("last_error") @db.Text
+  processedAt    DateTime?       @map("processed_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  merchant       MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  transaction    Transaction?
+
+  @@unique([merchantId, idempotencyKey])
+  @@index([status, createdAt])
+  @@map("webhook_event")
+}

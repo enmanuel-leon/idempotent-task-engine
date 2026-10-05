@@ -1,0 +1,46 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs & caches
+dist
+build
+.turbo
+.cache
+.nx
+coverage
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Runtime uploads & persistent local storage
+uploads/
+/data
+*.tar
+*.tar.gz
+*.tar.zst
+
+# IDE & Editor files
+.idea/
+.project
+.settings/
+*.suo
+*.user
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Logs & Diagnostics
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# SonarCloud
+.sonar/
+.scannerwork/

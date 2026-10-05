@@ -1,0 +1,49 @@
+{
+  "name": "idempotent-task-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "High-throughput, self-hosted distributed task engine that guarantees exactly-once logical processing.",
+  "scripts": {
+    "dev": "pnpm ports:free && turbo dev",
+    "ports:free": "scripts/kill-ports.sh",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "knip": "knip",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "prepush:verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "infra:up": "docker compose -f docker/docker-compose.dev.yml up -d",
+    "infra:down": "docker compose -f docker/docker-compose.dev.yml down",
+    "infra:logs": "docker compose -f docker/docker-compose.dev.yml logs -f",
+    "docker:stack:up": "docker compose -f docker/docker-compose.yml up -d --build",
+    "docker:stack:down": "docker compose -f docker/docker-compose.yml down",
+    "db:push": "pnpm --filter api db:push",
+    "db:migrate:dev": "pnpm --filter api db:migrate:dev",
+    "db:migrate:deploy": "pnpm --filter api db:migrate:deploy",
+    "db:seed": "pnpm --filter api db:seed",
+    "prisma:generate": "pnpm --filter api prisma:generate",
+    "bench:stress": "pnpm --filter api bench:stress",
+    "bench:chaos": "pnpm --filter api bench:chaos",
+    "postinstall": "pnpm prisma:generate",
+    "prepare": "husky",
+    "test:coverage": "turbo test:coverage"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "catalog:",
+    "@commitlint/config-conventional": "catalog:",
+    "husky": "catalog:",
+    "knip": "catalog:",
+    "lint-staged": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "turbo": "catalog:"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.33.0"
+  },
+  "packageManager": "pnpm@11.10.0"
+}

@@ -1,0 +1,81 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🧹 Dev: Kill Ports (3000 & 5173)",
+      "type": "shell",
+      "command": "pnpm ports:free",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "🐳 Infra: Start Docker Stack",
+      "type": "shell",
+      "command": "pnpm infra:up",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "🛑 Infra: Stop Docker Stack",
+      "type": "shell",
+      "command": "pnpm infra:down",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "🚀 Dev: All (BE + FE)",
+      "type": "shell",
+      "command": "pnpm dev",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "⚡ Dev: API (Backend)",
+      "type": "shell",
+      "command": "pnpm ports:free && pnpm --filter api dev",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "💻 Dev: Web (Frontend)",
+      "type": "shell",
+      "command": "pnpm ports:free && pnpm --filter web dev",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "🗄️ DB: Push & Seed",
+      "type": "shell",
+      "command": "pnpm db:push && pnpm db:seed",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "🛠️ SRE: Interactive CLI Console",
+      "type": "shell",
+      "command": "pnpm cli",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "🔥 Dev: Clean & Reset Local",
+      "type": "shell",
+      "command": "pnpm clean:reset",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "🧪 Quality: Check All",
+      "type": "shell",
+      "command": "pnpm check",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

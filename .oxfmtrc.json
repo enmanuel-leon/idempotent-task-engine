@@ -1,0 +1,5 @@
+{
+  "singleQuote": true,
+  "sortPackageJson": false,
+  "ignorePatterns": ["pnpm-lock.yaml", "openwiki/**", "**/dist/**"]
+}

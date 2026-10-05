@@ -1,0 +1,19 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "oxc.enable": true,
+  "oxc.fmt.enable": true,
+  "oxc.lint.enable": true,
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "i18n-ally.localesPaths": ["apps/web/src/locales"],
+  "i18n-ally.pathMatcher": "{locale}.json",
+  "i18n-ally.keystyle": "nested",
+  "i18n-ally.defaultNamespace": "translation",
+  "i18n-ally.namespace": false,
+  "i18n-ally.sourceLanguage": "en",
+  "i18n-ally.displayLanguage": "en",
+  "files.associations": {
+    "*.css": "tailwindcss"
+  }
+}

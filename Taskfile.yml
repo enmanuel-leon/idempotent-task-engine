@@ -1,0 +1,47 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Run quality checks
+    cmds:
+      - pnpm check
+
+  dev:
+    desc: Free ports and start all services in development mode
+    cmds:
+      - pnpm dev
+
+  ports:free:
+    desc: Clear any process listening on ports 3000 and 5173
+    cmds:
+      - pnpm ports:free
+
+  infra:up:
+    desc: Start local infrastructure containers (Postgres, Redis, MinIO)
+    cmds:
+      - pnpm infra:up
+
+  infra:down:
+    desc: Stop local infrastructure containers
+    cmds:
+      - pnpm infra:down
+
+  db:push:
+    desc: Push Prisma schema to the database
+    cmds:
+      - pnpm db:push
+
+  db:seed:
+    desc: Seed initial database records
+    cmds:
+      - pnpm db:seed
+
+  clean:
+    desc: Reset local environment, prune docker volumes, and re-seed
+    cmds:
+      - pnpm clean:reset
+
+  build:
+    desc: Build all apps for production
+    cmds:
+      - pnpm build

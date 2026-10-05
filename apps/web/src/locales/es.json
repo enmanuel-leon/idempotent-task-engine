@@ -1,0 +1,19 @@
+{
+  "app": {
+    "title": "Motor de Tareas Idempotente",
+    "subtitle": "Pasarela de Ingesta Distribuida con Garantía Exacta",
+    "liveStream": "TRANSMISIÓN EN VIVO",
+    "connecting": "CONECTANDO"
+  },
+  "metrics": {
+    "throughput": "Rendimiento",
+    "deduplication": "Eficiencia de Deduplicación",
+    "latency": "Latencia (p95 / p99)",
+    "dlq": "Cola de Mensajes Muertos"
+  },
+  "chaos": {
+    "title": "Interruptores de Inyección de Caos",
+    "flakyGateway": "Caos de Pasarela Bancaria",
+    "dbLatency": "Pico de Latencia en PostgreSQL"
+  }
+}
