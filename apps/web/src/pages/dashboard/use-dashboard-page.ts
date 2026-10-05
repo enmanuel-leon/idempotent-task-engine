@@ -32,8 +32,20 @@ interface TransactionsResponse {
   };
 }
 
+interface ResetResponse {
+  success: boolean;
+  transactionsDeleted: number;
+  eventsDeleted: number;
+  merchantBalanceCents: string;
+  redisKeysRemoved: number;
+}
+
 export function useDashboardPage() {
   const [page, setPage] = useState(1);
+  const [burstConcurrency, setBurstConcurrency] = useState(10);
+  const [isSimulatingBurst, setIsSimulatingBurst] = useState(false);
+  const [isSimulatingScenarioA, setIsSimulatingScenarioA] = useState(false);
+
   const pageSize = 8;
   const queryClient = useQueryClient();
   const { metrics, isConnected } = useSseMetrics();
@@ -94,21 +106,111 @@ export function useDashboardPage() {
     },
   });
 
-  const [isSimulating, setIsSimulating] = useState(false);
+  const resetDataMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<ResetResponse>('/api/v1/admin/reset', {
+        method: 'POST',
+      }),
+    onSuccess: (data) => {
+      toast.success(
+        `Test data purged: ${data.transactionsDeleted} transactions removed, balance reset to $10,000.00`,
+      );
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
 
-  const handleSimulateBurst = async () => {
+  const handleRunScenarioA = async () => {
     if (!merchantQuery.data) {
       toast.error('Merchant credentials not loaded');
       return;
     }
 
-    setIsSimulating(true);
+    setIsSimulatingScenarioA(true);
+    const key = 'seq_' + Math.random().toString(36).substring(2, 9);
+    const ref = 'ref_seq_' + Math.random().toString(36).substring(2, 9);
+    const apiKey = merchantQuery.data.apiKey;
+
+    try {
+      // 1. Initial Request (Leader)
+      const res1 = await fetch('/api/v1/webhooks/epayco', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'idempotency-key': key,
+          'x-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          eventType: 'PAYMENT_SUCCEEDED',
+          amountCents: 2500, // $25.00
+          reference: ref,
+          metadata: { scenario: 'A' },
+        }),
+      });
+
+      const cacheHeader1 = res1.headers.get('x-cache');
+
+      // Brief delay to allow worker settlement
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      // 2. Duplicate Request with exact same Idempotency-Key
+      const tStart2 = Date.now();
+      const res2 = await fetch('/api/v1/webhooks/epayco', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'idempotency-key': key,
+          'x-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          eventType: 'PAYMENT_SUCCEEDED',
+          amountCents: 2500,
+          reference: ref,
+          metadata: { scenario: 'A' },
+        }),
+      });
+      const tDuration2 = Date.now() - tStart2;
+      const cacheHeader2 = res2.headers.get('x-cache');
+
+      if (res2.status === 200 && cacheHeader2 === 'HIT') {
+        toast.success(
+          `Scenario A Verified: Req 1 queued (${cacheHeader1}), Req 2 instant 200 Cache HIT (${tDuration2}ms)!`,
+        );
+      } else {
+        toast.info(
+          `Req 1 (${res1.status}, ${cacheHeader1}) • Req 2 (${res2.status}, ${cacheHeader2}, ${tDuration2}ms)`,
+        );
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    } catch (err) {
+      let msg = 'Failed to run Scenario A';
+      if (err instanceof Error) {
+        msg = err.message;
+      }
+      toast.error(msg);
+    } finally {
+      setIsSimulatingScenarioA(false);
+    }
+  };
+
+  const handleRunBurst = async () => {
+    if (!merchantQuery.data) {
+      toast.error('Merchant credentials not loaded');
+      return;
+    }
+
+    setIsSimulatingBurst(true);
     const sharedKey = 'burst_' + Math.random().toString(36).substring(2, 9);
     const reference = 'ref_' + Math.random().toString(36).substring(2, 9);
     const apiKey = merchantQuery.data.apiKey;
 
     try {
-      const requests = Array.from({ length: 6 }).map(() =>
+      const requests = Array.from({ length: burstConcurrency }).map(() =>
         fetch('/api/v1/webhooks/epayco', {
           method: 'POST',
           headers: {
@@ -118,9 +220,9 @@ export function useDashboardPage() {
           },
           body: JSON.stringify({
             eventType: 'PAYMENT_SUCCEEDED',
-            amountCents: 5000, // $50.00
+            amountCents: 5000,
             reference,
-            metadata: { simulation: true },
+            metadata: { simulation: true, burstSize: burstConcurrency },
           }),
         }).then((res) => ({
           status: res.status,
@@ -129,19 +231,19 @@ export function useDashboardPage() {
       );
 
       const results = await Promise.all(requests);
-      let cacheHits = 0;
-      let queued = 0;
+      let interceptedCount = 0;
+      let leaderCount = 0;
 
       for (const r of results) {
-        if (r.cacheHeader === 'HIT' || r.cacheHeader === 'HIT_CONCURRENT') {
-          cacheHits += 1;
+        if (r.cacheHeader === 'HIT' || r.cacheHeader === 'HIT_CONCURRENT' || r.status === 504) {
+          interceptedCount += 1;
         } else {
-          queued += 1;
+          leaderCount += 1;
         }
       }
 
       toast.success(
-        `Burst sent: ${queued} leader queued, ${cacheHits} duplicate runners intercepted`,
+        `Burst ${burstConcurrency}x sent: ${leaderCount} leader queued, ${interceptedCount} duplicate runners intercepted`,
       );
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
@@ -152,7 +254,7 @@ export function useDashboardPage() {
       }
       toast.error(msg);
     } finally {
-      setIsSimulating(false);
+      setIsSimulatingBurst(false);
     }
   };
 
@@ -175,6 +277,10 @@ export function useDashboardPage() {
     replayDlqMutation.mutate();
   };
 
+  const handleResetTestData = () => {
+    resetDataMutation.mutate();
+  };
+
   const handleNextPage = () => {
     const totalPages = transactionsQuery.data?.pagination.totalPages ?? 1;
     if (page < totalPages) {
@@ -195,9 +301,15 @@ export function useDashboardPage() {
     transactions: transactionsQuery.data?.data ?? [],
     pagination: transactionsQuery.data?.pagination,
     isTransactionsLoading: transactionsQuery.isFetching,
-    isSimulating,
+    isSimulatingBurst,
+    isSimulatingScenarioA,
+    isResettingData: resetDataMutation.isPending,
     isReplayingDlq: replayDlqMutation.isPending,
-    handleSimulateBurst,
+    burstConcurrency,
+    setBurstConcurrency,
+    handleRunScenarioA,
+    handleRunBurst,
+    handleResetTestData,
     handleRefreshTransactions,
     handleToggleFlaky,
     handleToggleDbLatency,

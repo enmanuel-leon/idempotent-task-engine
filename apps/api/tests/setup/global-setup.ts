@@ -17,7 +17,7 @@ function getTestUrls(): { adminUrl: string; testUrl: string } {
 
       const parsedTest = new URL(currentDbUrl);
       parsedTest.pathname = `/${TEST_DB_NAME}`;
-      parsedTest.search = '?schema=public';
+      parsedTest.search = '?schema=task_engine';
 
       return {
         adminUrl: parsedAdmin.toString(),
@@ -30,7 +30,7 @@ function getTestUrls(): { adminUrl: string; testUrl: string } {
 
   return {
     adminUrl: 'postgresql://postgres:postgres@localhost:5432/postgres',
-    testUrl: `postgresql://postgres:postgres@localhost:5432/${TEST_DB_NAME}?schema=public`,
+    testUrl: `postgresql://postgres:postgres@localhost:5432/${TEST_DB_NAME}?schema=task_engine`,
   };
 }
 

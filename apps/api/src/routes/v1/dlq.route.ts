@@ -1,3 +1,4 @@
+import { resetTaskEngineData } from '../../services/admin.service.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { webhooksDlqQueue, webhooksIncomingQueue } from '../../lib/queue.js';
@@ -102,6 +103,14 @@ export async function dlqRoutes(fastify: FastifyInstance) {
     return reply.send({
       success: true,
       replayedCount,
+    });
+  });
+
+  fastify.post('/admin/reset', async (_req: FastifyRequest, reply: FastifyReply) => {
+    const result = await resetTaskEngineData();
+    return reply.send({
+      success: true,
+      ...result,
     });
   });
 }

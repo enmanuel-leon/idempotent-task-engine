@@ -10,9 +10,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Server,
-  Database,
   DollarSign,
   Flame,
+  Database,
+  Trash2,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { useDashboardPage } from './use-dashboard-page';
 import { formatCentsToCurrency, cn } from '../../lib/utils';
@@ -25,9 +27,15 @@ export function DashboardPage() {
     transactions,
     pagination,
     isTransactionsLoading,
-    isSimulating,
+    isSimulatingBurst,
+    isSimulatingScenarioA,
+    isResettingData,
     isReplayingDlq,
-    handleSimulateBurst,
+    burstConcurrency,
+    setBurstConcurrency,
+    handleRunScenarioA,
+    handleRunBurst,
+    handleResetTestData,
     handleRefreshTransactions,
     handleToggleFlaky,
     handleToggleDbLatency,
@@ -73,6 +81,11 @@ export function DashboardPage() {
     balanceDisplay = formatCentsToCurrency(merchant.balanceCents, merchant.currency);
   }
 
+  let merchantName = 'Acme Payments';
+  if (merchant && merchant.name) {
+    merchantName = merchant.name;
+  }
+
   return (
     <div className="min-h-screen bg-[#0A0C10] text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30">
       {/* Top Navigation */}
@@ -97,8 +110,17 @@ export function DashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {connectionBadge}
+            <button
+              type="button"
+              onClick={handleResetTestData}
+              disabled={isResettingData}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all disabled:opacity-50"
+            >
+              <Trash2 className={cn('w-3.5 h-3.5', isResettingData && 'animate-spin')} />
+              Reset Test Data
+            </button>
             <a
               href="/admin/queues"
               target="_blank"
@@ -106,7 +128,7 @@ export function DashboardPage() {
               className="text-xs font-mono text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/20 hover:border-indigo-500/40 bg-indigo-500/5"
             >
               <Server className="w-3.5 h-3.5" />
-              Bull-Board UI
+              Bull-Board
             </a>
           </div>
         </div>
@@ -114,9 +136,10 @@ export function DashboardPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Merchant & Quick Simulation Banner */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Interactive Testing Panel */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Merchant Account & Settlement Balance */}
+          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs font-mono text-slate-400 uppercase tracking-wider">
                 <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
@@ -126,52 +149,89 @@ export function DashboardPage() {
                 {balanceDisplay}
               </div>
               <p className="text-xs text-slate-400">
-                Merchant:{' '}
-                <span className="text-slate-200 font-medium">
-                  {merchant?.name ?? 'Acme Payments'}
-                </span>{' '}
-                • <span className="font-mono text-[11px] opacity-75">{merchant?.apiKey}</span>
+                Merchant: <span className="text-slate-200 font-medium">{merchantName}</span> •{' '}
+                <span className="font-mono text-[11px] opacity-75">{merchant?.apiKey}</span>
               </p>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSimulateBurst}
-                disabled={isSimulating}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                <span>Simulate 6x Concurrent Burst</span>
-              </button>
+            <div className="pt-4 border-t border-slate-850 flex items-center justify-between text-xs font-mono text-slate-400">
+              <span>PostgreSQL Namespace</span>
+              <span className="text-indigo-400 font-semibold">schema = task_engine</span>
             </div>
           </div>
 
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-violet-400" />
-                QUEUE WORKER STATUS
-              </span>
-              <span className="text-emerald-400 font-medium">CONCURRENCY: 20</span>
+          {/* Test Harness 1: Scenario A (Sequential Idempotency / Cache Hit) */}
+          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+                <span className="flex items-center gap-1.5 text-amber-400 font-medium">
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  SCENARIO A: CACHE HIT
+                </span>
+                <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+                  Target: &lt; 5ms
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                Sends Request 1 (leader queues work), awaits settlement, then immediately sends
+                Request 2 with the identical key to verify instantaneous Redis response cache hit.
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 my-2">
-              <div className="p-2.5 rounded-lg bg-[#141721] border border-slate-850">
-                <div className="text-[11px] font-mono text-slate-400">Active In-Flight</div>
-                <div className="text-xl font-mono font-bold text-indigo-400">
-                  {metrics.queueActiveCount}
+            <button
+              type="button"
+              onClick={handleRunScenarioA}
+              disabled={isSimulatingScenarioA}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all disabled:opacity-50"
+            >
+              <Zap
+                className={cn('w-4 h-4 fill-current', isSimulatingScenarioA && 'animate-spin')}
+              />
+              <span>Test Scenario A (Instant Cache Hit)</span>
+            </button>
+          </div>
+
+          {/* Test Harness 2: Scenario B (Customizable Concurrent Collision Burst) */}
+          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+                <span className="flex items-center gap-1.5 text-indigo-400 font-medium">
+                  <Layers className="w-3.5 h-3.5" />
+                  SCENARIO B: CONCURRENCY BURST
+                </span>
+                <span className="text-xs font-mono text-indigo-300 font-bold">
+                  {burstConcurrency}x parallel
+                </span>
+              </div>
+              <div className="my-2 space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                  <span>Concurrency Level</span>
+                  <span>{burstConcurrency} callers</span>
+                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="50"
+                  step="5"
+                  value={burstConcurrency}
+                  onChange={(e) => setBurstConcurrency(Number(e.target.value))}
+                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                />
+                <div className="flex justify-between text-[9px] font-mono text-slate-400">
+                  <span>5x</span>
+                  <span>20x</span>
+                  <span>35x</span>
+                  <span>50x</span>
                 </div>
               </div>
-              <div className="p-2.5 rounded-lg bg-[#141721] border border-slate-850">
-                <div className="text-[11px] font-mono text-slate-400">Queued / Delayed</div>
-                <div className="text-xl font-mono font-bold text-violet-400">
-                  {metrics.queueWaitingCount}
-                </div>
-              </div>
             </div>
-            <div className="text-[11px] font-mono text-slate-400">
-              Backoff: Full Jitter (Base: 1000ms, Max: 5 tries)
-            </div>
+            <button
+              type="button"
+              onClick={handleRunBurst}
+              disabled={isSimulatingBurst}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50"
+            >
+              <Play className={cn('w-4 h-4 fill-current', isSimulatingBurst && 'animate-spin')} />
+              <span>Fire {burstConcurrency}x Concurrent Burst</span>
+            </button>
           </div>
         </div>
 
@@ -340,11 +400,15 @@ export function DashboardPage() {
                 let label = 'LEADER (MISS)';
                 if (item.cacheStatus === 'HIT') {
                   badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-                  label = 'INTERCEPTED (HIT)';
+                  label = 'CACHED (HIT)';
                 }
                 if (item.cacheStatus === 'HIT_CONCURRENT') {
                   badgeClass = 'bg-violet-500/10 text-violet-400 border-violet-500/20';
                   label = 'CONCURRENT HIT';
+                }
+                if (item.cacheStatus === 'TIMEOUT_CONCURRENT') {
+                  badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                  label = 'INTERCEPTED (TIMEOUT)';
                 }
 
                 return (

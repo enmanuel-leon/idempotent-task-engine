@@ -20,7 +20,9 @@
     "bench:stress": "tsx benchmarks/stress.ts",
     "bench:chaos": "tsx benchmarks/chaos.ts",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "db:purge": "tsx scripts/reset.ts",
+    "test:reset": "tsx scripts/reset.ts"
   },
   "dependencies": {
     "@bull-board/api": "catalog:",

@@ -29,7 +29,9 @@
     "bench:chaos": "pnpm --filter api bench:chaos",
     "postinstall": "pnpm prisma:generate",
     "prepare": "husky",
-    "test:coverage": "turbo test:coverage"
+    "test:coverage": "turbo test:coverage",
+    "db:purge": "pnpm --filter api db:purge",
+    "test:reset": "pnpm --filter api test:reset"
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",

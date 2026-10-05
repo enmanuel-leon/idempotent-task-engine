@@ -43,6 +43,14 @@ class MetricsService {
     this.startBroadcasting();
   }
 
+  public reset(): void {
+    this.totalIngested = 0;
+    this.totalDuplicates = 0;
+    this.ingestionTimestamps = [];
+    this.latenciesMs = [];
+    this.recentFeed = [];
+  }
+
   public recordIngestion(item: DedupFeedItem): void {
     const now = Date.now();
     this.totalIngested += 1;

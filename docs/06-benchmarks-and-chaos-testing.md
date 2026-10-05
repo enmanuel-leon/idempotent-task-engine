@@ -13,3 +13,21 @@
 - **Suite B: Chaos Concurrency Collision (`npm run bench:chaos`):**
   - Target: 1,000 requests/sec with a constrained pool of 100 rotating idempotency keys.
   - Success Criteria: Exactly 100 database transactions created, 0 duplicate ledger entries, 100% response consistency.
+
+## Concurrency vs. True Parallelism Architecture
+
+### Concurrency (Async Event Loop Interleaving)
+
+Fastify and Node.js handle thousands of concurrent network connections via non-blocking asynchronous I/O (libuv). When high-concurrency bursts arrive:
+
+1. TCP connections are accepted concurrently.
+2. Async I/O dispatches (Redis atomic locks, DB queries) are interleaved without blocking the thread.
+3. Redis acts as the centralized atomic synchronization coordinator: the first packet to arrive acquires the lock (`SET NX EX`), and subsequent packets are rejected as concurrent runners.
+
+### True Hardware Parallelism (Multi-Core Execution)
+
+To achieve simultaneous multi-core instruction execution, the engine supports three decoupled scaling tiers:
+
+1. **Multi-Process Worker Pool:** Spawn multiple isolated worker OS processes running `apps/api/src/worker.ts`. BullMQ uses Redis atomic primitives to coordinate job leasing across all parallel processes with zero race conditions.
+2. **Containerized Worker Replicas:** In production (`docker-compose.yml`), scale workers horizontally with `deploy.replicas: 4`.
+3. **Gateway Clustering:** Fastify can be clustered across CPU cores using Node.js `node:cluster`, sharing port 3100 via OS kernel socket balancing.
