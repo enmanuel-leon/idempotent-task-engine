@@ -28,3 +28,12 @@ Execute: SET lock:hash_123 <uuid> NX EX 45
 ## Double-Checked Locking Rationale
 
 When concurrent identical requests strike during sub-millisecond windows, Request B could attempt to subscribe AFTER the worker has already finished and published. By subscribing FIRST, then immediately checking the response cache, Request B guarantees zero missed notifications.
+
+## Edge Case Test Suite (`apps/api/tests/unit/idempotency.test.ts`)
+
+Targeted unit and integration tests formally verify four critical edge conditions:
+
+1. **Deterministic Normalization:** Deterministic SHA256 hashing across merchant and idempotency key pairs.
+2. **Cache Integrity & Graceful Deserialization:** Key existence checks, roundtrip payload verification, and corrupted JSON tolerance.
+3. **Distributed Lock TTL & Mutex Isolation:** Strict `SET NX EX` mutexing, key TTL enforcement, and Lua script atomicity ensuring only token owners release locks.
+4. **Race Condition Timeouts & Subscriber Cleanup:** Sub-second timeout resolution, listener unregistration (`off('message')`), fast-path double-check cache return, and zero subscriber memory leaks.

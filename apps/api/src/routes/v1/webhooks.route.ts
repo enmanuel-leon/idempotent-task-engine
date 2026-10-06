@@ -56,7 +56,7 @@ async function handleConcurrentRunner(
     id: randomUUID(),
     idempotencyKey: logData.idKey,
     normalizedKey,
-    cacheStatus: 'MISS',
+    cacheStatus: 'TIMEOUT_CONCURRENT',
     eventType: logData.eventType,
     amountCents: logData.amountCents,
     durationMs,

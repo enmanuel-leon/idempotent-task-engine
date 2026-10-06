@@ -72,22 +72,24 @@ export function DashboardPage() {
     handlePrevEventsPage,
   } = useDashboardPage();
 
+  const liveFeedItems = metrics.recentFeed.slice(0, 15);
+
   let connectionBadge = (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-green-500/10 text-green-400 border border-green-500/25">
+      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
       LIVE STREAM
     </span>
   );
   if (!isConnected) {
     connectionBadge = (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
-        <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-amber-500/10 text-amber-400 border border-amber-500/25">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
         CONNECTING
       </span>
     );
   }
 
-  let flakyButtonClass = 'border-slate-800 bg-[#12141A] text-slate-400 hover:border-slate-700';
+  let flakyButtonClass = 'border-slate-800 bg-[#161922] text-slate-400 hover:border-slate-700';
   let flakyBadgeText = 'OFF (0%)';
   if (metrics.chaosStatus.flakyGateway) {
     flakyButtonClass =
@@ -95,11 +97,11 @@ export function DashboardPage() {
     flakyBadgeText = 'ACTIVE (25% 500s)';
   }
 
-  let dbLatencyButtonClass = 'border-slate-800 bg-[#12141A] text-slate-400 hover:border-slate-700';
+  let dbLatencyButtonClass = 'border-slate-800 bg-[#161922] text-slate-400 hover:border-slate-700';
   let dbLatencyBadgeText = 'OFF (0ms)';
   if (metrics.chaosStatus.dbLatency) {
     dbLatencyButtonClass =
-      'border-rose-500/40 bg-rose-500/10 text-rose-300 hover:border-rose-500/60';
+      'border-amber-500/40 bg-amber-500/10 text-amber-300 hover:border-amber-500/60';
     dbLatencyBadgeText = 'ACTIVE (+800ms)';
   }
 
@@ -120,7 +122,7 @@ export function DashboardPage() {
     ' concurrent HTTP callers with the identical idempotency key simultaneously to test high-contention locking.';
 
   return (
-    <div className="min-h-screen bg-[#0A0C10] text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-[#0B0D13] text-slate-100 flex flex-col font-sans selection:bg-slate-700 selection:text-white">
       {/* Modals for Destructive and High-Impact Actions */}
       <ConfirmModal
         isOpen={isResetConfirmOpen}
@@ -159,22 +161,22 @@ export function DashboardPage() {
       />
 
       {/* Top Navigation */}
-      <header className="border-b border-slate-800/80 bg-[#0E1017]/80 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b border-slate-800 bg-[#11141D]/90 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <ShieldCheck className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
+              <ShieldCheck className="w-4 h-4 text-slate-200" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold tracking-tight text-white text-base">
+                <span className="font-bold tracking-tight text-white text-sm">
                   Idempotent Task Engine
                 </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-slate-400">
                   v1.0
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-mono">
+              <p className="text-[11px] text-slate-400 font-mono">
                 Exactly-Once Distributed Ingestion Gateway
               </p>
             </div>
@@ -186,7 +188,7 @@ export function DashboardPage() {
               type="button"
               onClick={() => setIsResetConfirmOpen(true)}
               disabled={isResettingData}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors disabled:opacity-40"
             >
               <Trash2 className={cn('w-3.5 h-3.5', isResettingData && 'animate-spin')} />
               Reset Test Data
@@ -195,7 +197,7 @@ export function DashboardPage() {
               href="/admin/queues"
               target="_blank"
               rel="noreferrer"
-              className="text-xs font-mono text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/20 hover:border-indigo-500/40 bg-indigo-500/5"
+              className="text-xs font-mono text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-600 bg-slate-800"
             >
               <Server className="w-3.5 h-3.5" />
               Bull-Board
@@ -206,13 +208,13 @@ export function DashboardPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Last Execution Summary Card (Locked-in Performance Snapshot) */}
+        {/* Last Execution Summary Banner */}
         {lastExecutionSummary && (
-          <div className="p-5 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-[#0E1017] to-purple-950/20 shadow-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center justify-between border-b border-indigo-500/20 pb-2.5">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
               <div className="flex items-center gap-2">
-                <Gauge className="w-4 h-4 text-indigo-400" />
-                <span className="text-xs font-mono uppercase tracking-wider text-indigo-300 font-semibold">
+                <Gauge className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-mono uppercase tracking-wider text-slate-200 font-semibold">
                   Last Run Performance Summary • {lastExecutionSummary.scenarioName}
                 </span>
               </div>
@@ -249,7 +251,7 @@ export function DashboardPage() {
 
               <div className="space-y-0.5">
                 <div className="text-[11px] font-mono text-slate-400">Burst p95 / p99 Latency</div>
-                <div className="text-2xl font-mono font-bold text-emerald-400 tracking-tight">
+                <div className="text-2xl font-mono font-bold text-green-400 tracking-tight">
                   {lastExecutionSummary.p95LatencyMs}{' '}
                   <span className="text-xs font-normal text-slate-400">
                     / {lastExecutionSummary.p99LatencyMs} ms
@@ -258,10 +260,10 @@ export function DashboardPage() {
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
+            <div className="pt-2.5 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
               <span>
                 Breakdown:{' '}
-                <span className="text-indigo-300 font-medium">
+                <span className="text-cyan-300 font-medium">
                   {lastExecutionSummary.leadersQueued} leader queued
                 </span>
                 ,{' '}
@@ -270,7 +272,7 @@ export function DashboardPage() {
                 </span>{' '}
                 (Total: {lastExecutionSummary.totalRequests} callers)
               </span>
-              <span className="text-emerald-400 font-semibold">100% Exactly-Once Guaranteed</span>
+              <span className="text-green-400 font-semibold">100% Exactly-Once Guaranteed</span>
             </div>
           </div>
         )}
@@ -278,13 +280,13 @@ export function DashboardPage() {
         {/* Interactive Testing Panel */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Card 1: Settlement Balance */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] flex flex-col justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs font-mono text-slate-400 uppercase tracking-wider">
-                <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                <DollarSign className="w-3.5 h-3.5 text-green-400" />
                 Ledger Settlement Balance
               </div>
-              <div className="text-3xl font-mono font-bold tracking-tight text-emerald-400">
+              <div className="text-3xl font-mono font-bold tracking-tight text-green-400">
                 {balanceDisplay}
               </div>
               <p className="text-xs text-slate-400">
@@ -292,21 +294,21 @@ export function DashboardPage() {
                 <span className="font-mono text-[11px] opacity-75">{merchant?.apiKey}</span>
               </p>
             </div>
-            <div className="pt-3 border-t border-slate-850 flex items-center justify-between text-[11px] font-mono text-slate-400">
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-400">
               <span>PostgreSQL Namespace</span>
-              <span className="text-indigo-400 font-semibold">task_engine</span>
+              <span className="text-slate-200 font-semibold">task_engine</span>
             </div>
           </div>
 
           {/* Card 2: Scenario A (Sequential Idempotency / Cache Hit) */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-2">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] flex flex-col justify-between space-y-2">
             <div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-                <span className="flex items-center gap-1.5 text-amber-400 font-medium">
+                <span className="flex items-center gap-1.5 text-green-400 font-medium">
                   <ArrowRightLeft className="w-3.5 h-3.5" />
                   SCENARIO A: CACHE HIT
                 </span>
-                <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+                <span className="text-[10px] bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
                   Target: &lt; 5ms
                 </span>
               </div>
@@ -319,24 +321,27 @@ export function DashboardPage() {
               type="button"
               onClick={handleRunScenarioA}
               disabled={isSimulatingScenarioA}
-              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-mono font-medium bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-mono font-medium bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 transition-colors disabled:opacity-40"
             >
               <Zap
-                className={cn('w-3.5 h-3.5 fill-current', isSimulatingScenarioA && 'animate-spin')}
+                className={cn(
+                  'w-3.5 h-3.5 text-green-400',
+                  isSimulatingScenarioA && 'animate-spin',
+                )}
               />
               <span>Test Scenario A (Cache Hit)</span>
             </button>
           </div>
 
           {/* Card 3: Scenario B (Customizable Concurrent Collision Burst) */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-2">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] flex flex-col justify-between space-y-2">
             <div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-                <span className="flex items-center gap-1.5 text-indigo-400 font-medium">
+                <span className="flex items-center gap-1.5 text-cyan-400 font-medium">
                   <Layers className="w-3.5 h-3.5" />
                   SCENARIO B: BURST
                 </span>
-                <span className="text-xs font-mono text-indigo-300 font-bold">
+                <span className="text-xs font-mono text-cyan-300 font-bold">
                   {burstConcurrency}x callers
                 </span>
               </div>
@@ -348,7 +353,7 @@ export function DashboardPage() {
                   step="5"
                   value={burstConcurrency}
                   onChange={(e) => setBurstConcurrency(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                 />
                 <div className="flex justify-between text-[9px] font-mono text-slate-400">
                   <span>5x</span>
@@ -362,7 +367,7 @@ export function DashboardPage() {
               type="button"
               onClick={handleRunBurst}
               disabled={isSimulatingBurst}
-              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-mono font-medium bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-mono font-semibold bg-slate-100 hover:bg-white text-slate-950 border border-slate-200 transition-colors disabled:opacity-40"
             >
               <Play
                 className={cn('w-3.5 h-3.5 fill-current', isSimulatingBurst && 'animate-spin')}
@@ -372,14 +377,14 @@ export function DashboardPage() {
           </div>
 
           {/* Card 4: Scenario C (Parametric Realistic Multi-Tenant Workload) */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-2">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] flex flex-col justify-between space-y-2">
             <div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
                 <span className="flex items-center gap-1.5 text-cyan-400 font-medium">
                   <Sparkles className="w-3.5 h-3.5" />
                   SCENARIO C: REALISTIC
                 </span>
-                <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+                <span className="text-[10px] bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
                   {realisticVolume} items • {realisticDupRatio}% dups
                 </span>
               </div>
@@ -403,21 +408,29 @@ export function DashboardPage() {
                 <div className="flex items-center justify-between text-[10px] font-mono">
                   <span className="text-slate-400">Duplicate Ratio</span>
                   <div className="flex items-center gap-1">
-                    {[10, 25, 50].map((ratio) => (
-                      <button
-                        key={ratio}
-                        type="button"
-                        onClick={() => setRealisticDupRatio(ratio)}
-                        className={cn(
-                          'px-1.5 py-0.5 rounded text-[10px] transition-colors',
-                          realisticDupRatio === ratio
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                            : 'bg-slate-800 text-slate-400 hover:text-slate-200',
-                        )}
-                      >
-                        {ratio}%
-                      </button>
-                    ))}
+                    {[10, 25, 50].map((ratio) => {
+                      const isSelected = realisticDupRatio === ratio;
+                      let ratioPillClass =
+                        'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700/60';
+                      if (isSelected) {
+                        ratioPillClass =
+                          'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold';
+                      }
+
+                      return (
+                        <button
+                          key={ratio}
+                          type="button"
+                          onClick={() => setRealisticDupRatio(ratio)}
+                          className={cn(
+                            'px-2 py-0.5 rounded text-[10px] transition-colors',
+                            ratioPillClass,
+                          )}
+                        >
+                          {ratio}%
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -426,9 +439,11 @@ export function DashboardPage() {
               type="button"
               onClick={handleRunRealisticWorkload}
               disabled={isSimulatingRealistic}
-              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-mono font-medium bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition-all disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-mono font-medium bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 transition-colors disabled:opacity-40"
             >
-              <Sparkles className={cn('w-3.5 h-3.5', isSimulatingRealistic && 'animate-spin')} />
+              <Sparkles
+                className={cn('w-3.5 h-3.5 text-cyan-400', isSimulatingRealistic && 'animate-spin')}
+              />
               <span>Run Realistic Workload</span>
             </button>
           </div>
@@ -437,7 +452,7 @@ export function DashboardPage() {
         {/* Real-time KPI Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: RPS */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-2">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] space-y-2">
             <div className="flex items-center justify-between text-xs font-mono text-slate-400 uppercase tracking-wider">
               <span>Throughput</span>
               <Activity className="w-4 h-4 text-cyan-400" />
@@ -454,7 +469,7 @@ export function DashboardPage() {
           </div>
 
           {/* Card 2: Deduplication Efficiency */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-2">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] space-y-2">
             <div className="flex items-center justify-between text-xs font-mono text-slate-400 uppercase tracking-wider">
               <span>Deduplication</span>
               <Zap className="w-4 h-4 text-amber-400" />
@@ -472,10 +487,10 @@ export function DashboardPage() {
           </div>
 
           {/* Card 3: Latency Percentiles */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-2">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] space-y-2">
             <div className="flex items-center justify-between text-xs font-mono text-slate-400 uppercase tracking-wider">
               <span>Latency (p95 / p99)</span>
-              <Clock className="w-4 h-4 text-emerald-400" />
+              <Clock className="w-4 h-4 text-green-400" />
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-mono font-bold text-white tracking-tight">
@@ -490,7 +505,7 @@ export function DashboardPage() {
           </div>
 
           {/* Card 4: Dead Letter Queue */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-2">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] space-y-2">
             <div className="flex items-center justify-between text-xs font-mono text-slate-400 uppercase tracking-wider">
               <span>Dead Letter Queue</span>
               <AlertTriangle className="w-4 h-4 text-rose-400" />
@@ -503,7 +518,7 @@ export function DashboardPage() {
                 type="button"
                 onClick={() => setIsReplayDlqConfirmOpen(true)}
                 disabled={isReplayingDlq || metrics.activeDlqCount === 0}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 disabled:opacity-40 transition-all"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 disabled:opacity-40 transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
                 Replay All
@@ -513,11 +528,11 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Chaos Engineering Controls Banner */}
-        <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-4">
+        {/* Chaos Engineering Switches */}
+        <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-orange-400" />
+              <Flame className="w-4 h-4 text-amber-400" />
               <h2 className="text-sm font-semibold tracking-wide uppercase text-slate-200 font-mono">
                 Chaos Engineering Injection Switches
               </h2>
@@ -532,14 +547,14 @@ export function DashboardPage() {
               type="button"
               onClick={handleToggleFlaky}
               className={cn(
-                'p-4 rounded-xl border text-left transition-all flex items-start justify-between gap-3',
+                'p-4 rounded-xl border text-left transition-colors flex items-start justify-between gap-3',
                 flakyButtonClass,
               )}
             >
               <div className="space-y-1">
                 <div className="text-sm font-semibold text-white flex items-center gap-2">
                   <span>Downstream Bank Gateway Chaos</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/40">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/40 border border-slate-800">
                     {flakyBadgeText}
                   </span>
                 </div>
@@ -554,14 +569,14 @@ export function DashboardPage() {
               type="button"
               onClick={handleToggleDbLatency}
               className={cn(
-                'p-4 rounded-xl border text-left transition-all flex items-start justify-between gap-3',
+                'p-4 rounded-xl border text-left transition-colors flex items-start justify-between gap-3',
                 dbLatencyButtonClass,
               )}
             >
               <div className="space-y-1">
                 <div className="text-sm font-semibold text-white flex items-center gap-2">
                   <span>PostgreSQL Latency Spike Chaos</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/40">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/40 border border-slate-800">
                     {dbLatencyBadgeText}
                   </span>
                 </div>
@@ -574,34 +589,34 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Two Columns: Left = Ingestion Feed & Idempotency Audit • Right = Settled Financial Ledger */}
+        {/* Two Columns with Visual Parity: Left = Ingestion & Audit • Right = Settled Financial Ledger */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Column: Live Buffer & Idempotency Audit */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-4 flex flex-col h-[480px]">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] flex flex-col h-[520px]">
+            {/* Header Tabs */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3 shrink-0">
+              <div className="flex items-center gap-1.5 p-0.5 rounded-lg bg-slate-900 border border-slate-800">
                 <button
                   type="button"
                   onClick={() => setActiveTab('live')}
                   className={cn(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800',
-                    activeTab === 'live' &&
-                      'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-600',
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-colors text-slate-400 hover:text-slate-200',
+                    activeTab === 'live' && 'bg-slate-800 text-slate-100 border border-slate-700',
                   )}
                 >
-                  <Radio className="w-3.5 h-3.5" />
+                  <Radio className="w-3.5 h-3.5 text-cyan-400" />
                   Live Ingestion Feed
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('historical')}
                   className={cn(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800',
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-colors text-slate-400 hover:text-slate-200',
                     activeTab === 'historical' &&
-                      'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-600',
+                      'bg-slate-800 text-slate-100 border border-slate-700',
                   )}
                 >
-                  <History className="w-3.5 h-3.5" />
+                  <History className="w-3.5 h-3.5 text-amber-400" />
                   Idempotency Audit Log
                 </button>
               </div>
@@ -609,100 +624,124 @@ export function DashboardPage() {
               <span className="text-[11px] font-mono text-slate-400">
                 {(() => {
                   if (activeTab === 'live') {
-                    return 'Sub-second Stream';
+                    return 'Sub-second SSE Buffer';
                   }
                   return 'PostgreSQL Audit Trail';
                 })()}
               </span>
             </div>
 
-            {/* Sub-view 1: Live Ingestion Feed */}
+            {/* Sub-view 1: Live Ingestion Feed (Rolling window capped at 15) */}
             {activeTab === 'live' && (
-              <div className="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
-                {metrics.recentFeed.length === 0 && (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
-                    <Activity className="w-6 h-6 opacity-30 animate-pulse" />
-                    <p>Awaiting incoming webhook requests...</p>
-                  </div>
-                )}
-
-                {metrics.recentFeed.map((item) => {
-                  let badgeClass = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
-                  let label = 'LEADER (MISS)';
-                  if (item.cacheStatus === 'HIT') {
-                    badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-                    label = 'CACHED (HIT)';
-                  }
-                  if (item.cacheStatus === 'HIT_CONCURRENT') {
-                    badgeClass = 'bg-violet-500/10 text-violet-400 border-violet-500/20';
-                    label = 'CONCURRENT HIT';
-                  }
-                  if (item.cacheStatus === 'TIMEOUT_CONCURRENT') {
-                    badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-                    label = 'INTERCEPTED (TIMEOUT)';
-                  }
-
-                  const { formatted, isNegative } = formatSignedCents(item.amountCents);
-                  let amountColorClass = 'text-emerald-400';
-                  if (isNegative) {
-                    amountColorClass = 'text-rose-400';
-                  }
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="p-3 rounded-lg border border-slate-800/60 bg-[#12141A] flex items-center justify-between gap-3"
-                    >
-                      <div className="space-y-0.5 truncate">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'px-1.5 py-0.5 rounded text-[10px] border font-bold',
-                              badgeClass,
-                            )}
-                          >
-                            {label}
-                          </span>
-                          <span className="text-slate-300 font-semibold">{item.eventType}</span>
-                        </div>
-                        <div className="text-[11px] text-slate-400 truncate">
-                          Key: {item.idempotencyKey}
-                        </div>
-                      </div>
-                      <div className="text-right whitespace-nowrap">
-                        <div className={cn('font-medium', amountColorClass)}>{formatted}</div>
-                        <div className="text-[10px] text-slate-400">{item.durationMs}ms</div>
-                      </div>
+              <div className="flex-1 min-h-0 flex flex-col justify-between">
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
+                  {liveFeedItems.length === 0 && (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-2 py-12">
+                      <Activity className="w-6 h-6 opacity-30 animate-pulse" />
+                      <p>Awaiting incoming webhook requests...</p>
                     </div>
-                  );
-                })}
+                  )}
+
+                  {liveFeedItems.map((item) => {
+                    // Semantic Color Scheme:
+                    // Green: Cache HIT
+                    // Cyan: Leader (MISS)
+                    // Amber: Concurrent HIT or Timeout waiting
+                    // Rose: Errors / Dead letter
+                    let badgeClass = 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25';
+                    let label = 'LEADER (MISS)';
+
+                    if (item.cacheStatus === 'HIT') {
+                      badgeClass = 'bg-green-500/10 text-green-400 border-green-500/25';
+                      label = 'CACHED (HIT)';
+                    }
+                    if (item.cacheStatus === 'HIT_CONCURRENT') {
+                      badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/25';
+                      label = 'CONCURRENT HIT';
+                    }
+                    if (item.cacheStatus === 'TIMEOUT_CONCURRENT') {
+                      badgeClass = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+                      label = 'TIMEOUT (WAITING)';
+                    }
+
+                    const { formatted, isNegative } = formatSignedCents(item.amountCents);
+                    let amountColorClass = 'text-green-400';
+                    if (isNegative) {
+                      amountColorClass = 'text-rose-400';
+                    }
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded-lg border border-slate-800 bg-[#161922] flex items-center justify-between gap-3"
+                      >
+                        <div className="space-y-0.5 truncate">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                'px-1.5 py-0.5 rounded text-[10px] border font-bold',
+                                badgeClass,
+                              )}
+                            >
+                              {label}
+                            </span>
+                            <span className="text-slate-200 font-semibold">{item.eventType}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate">
+                            Key: {item.idempotencyKey}
+                          </div>
+                        </div>
+                        <div className="text-right whitespace-nowrap">
+                          <div className={cn('font-medium', amountColorClass)}>{formatted}</div>
+                          <div className="text-[10px] text-slate-400">{item.durationMs}ms</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Footer bar for visual parity */}
+                <div className="pt-3 mt-2 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0">
+                  <span>Rolling Buffer: {liveFeedItems.length} of 15 max recent events</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('historical')}
+                    className="text-slate-300 hover:text-white underline transition-colors"
+                  >
+                    View Full Audit History
+                  </button>
+                </div>
               </div>
             )}
 
             {/* Sub-view 2: Idempotency Audit Log */}
             {activeTab === 'historical' && (
-              <div className="flex-1 flex flex-col justify-between space-y-2">
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
+              <div className="flex-1 min-h-0 flex flex-col justify-between">
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
                   {events.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
+                    <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-2 py-12">
                       <History className="w-6 h-6 opacity-30" />
                       <p>No historical events logged in database.</p>
                     </div>
                   )}
 
                   {events.map((evt) => {
-                    let statusBadgeClass = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+                    // Semantic Color Scheme:
+                    // Green: COMPLETED
+                    // Amber: PENDING, PROCESSING
+                    // Rose: DEAD_LETTER
+                    let statusBadgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/25';
                     if (evt.status === 'COMPLETED') {
-                      statusBadgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                      statusBadgeClass = 'bg-green-500/10 text-green-400 border-green-500/25';
                     }
                     if (evt.status === 'DEAD_LETTER') {
-                      statusBadgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                      statusBadgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/25';
                     }
 
                     return (
                       <div
                         key={evt.id}
-                        className="p-3 rounded-lg border border-slate-800/60 bg-[#12141A] flex items-center justify-between gap-3"
+                        className="p-3 rounded-lg border border-slate-800 bg-[#161922] flex items-center justify-between gap-3"
                       >
                         <div className="space-y-0.5 truncate">
                           <div className="flex items-center gap-2">
@@ -714,7 +753,7 @@ export function DashboardPage() {
                             >
                               {evt.status}
                             </span>
-                            <span className="text-slate-300 font-semibold">{evt.eventType}</span>
+                            <span className="text-slate-200 font-semibold">{evt.eventType}</span>
                             <span className="text-[10px] text-slate-400">
                               ({evt.attempts} tries)
                             </span>
@@ -724,7 +763,7 @@ export function DashboardPage() {
                           </div>
                         </div>
                         <div className="text-right whitespace-nowrap">
-                          <div className="text-slate-300 font-medium">{evt.reference}</div>
+                          <div className="text-slate-200 font-medium">{evt.reference}</div>
                           <div className="text-[10px] text-slate-400">
                             {new Date(evt.createdAt).toLocaleTimeString()}
                           </div>
@@ -742,7 +781,7 @@ export function DashboardPage() {
                       totalP = eventsPagination.totalPages;
                     }
                     return (
-                      <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
+                      <div className="pt-3 mt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400 shrink-0">
                         <span>
                           Page {eventsPage} of {totalP} ({eventsPagination.total} total)
                         </span>
@@ -751,7 +790,7 @@ export function DashboardPage() {
                             type="button"
                             onClick={handlePrevEventsPage}
                             disabled={eventsPage <= 1 || isEventsLoading}
-                            className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-all"
+                            className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-colors"
                           >
                             Prev
                           </button>
@@ -759,7 +798,7 @@ export function DashboardPage() {
                             type="button"
                             onClick={handleNextEventsPage}
                             disabled={eventsPage >= eventsPagination.totalPages || isEventsLoading}
-                            className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-all"
+                            className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-colors"
                           >
                             Next
                           </button>
@@ -772,10 +811,10 @@ export function DashboardPage() {
           </div>
 
           {/* Right Column: Settled Financial Ledger */}
-          <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-4 flex flex-col h-[480px]">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="p-5 rounded-xl border border-slate-800 bg-[#11141D] flex flex-col h-[520px]">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3 shrink-0">
               <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-emerald-400" />
+                <Database className="w-4 h-4 text-green-400" />
                 <h2 className="text-sm font-semibold text-slate-200">
                   Settled Ledger Transactions
                 </h2>
@@ -784,94 +823,96 @@ export function DashboardPage() {
                 type="button"
                 onClick={handleRefreshTransactions}
                 disabled={isTransactionsLoading}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono bg-slate-800 text-slate-300 hover:bg-slate-750 transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono bg-slate-800 text-slate-300 hover:bg-slate-750 transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={cn('w-3 h-3', isTransactionsLoading && 'animate-spin')} />
                 Refresh
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
-              {transactions.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
-                  <CheckCircle2 className="w-6 h-6 opacity-30" />
-                  <p>No settled transactions recorded yet.</p>
-                </div>
-              )}
+            <div className="flex-1 min-h-0 flex flex-col justify-between">
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
+                {transactions.length === 0 && (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-2 py-12">
+                    <CheckCircle2 className="w-6 h-6 opacity-30" />
+                    <p>No settled transactions recorded yet.</p>
+                  </div>
+                )}
 
-              {transactions.map((tx) => {
-                const { formatted, isNegative } = formatSignedCents(tx.amountCents);
-                let amountColorClass = 'text-emerald-400';
-                if (isNegative) {
-                  amountColorClass = 'text-rose-400';
-                }
+                {transactions.map((tx) => {
+                  const { formatted, isNegative } = formatSignedCents(tx.amountCents);
+                  let amountColorClass = 'text-green-400';
+                  if (isNegative) {
+                    amountColorClass = 'text-rose-400';
+                  }
 
-                return (
-                  <div
-                    key={tx.id}
-                    className="p-3 rounded-lg border border-slate-800/60 bg-[#12141A] flex items-center justify-between gap-3"
-                  >
-                    <div className="space-y-0.5 truncate">
+                  return (
+                    <div
+                      key={tx.id}
+                      className="p-3 rounded-lg border border-slate-800 bg-[#161922] flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-0.5 truncate">
+                        <div className="flex items-center gap-2">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-400 border border-green-500/25">
+                            {tx.status}
+                          </span>
+                          <span className="text-slate-200 font-semibold">{tx.reference}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 truncate">
+                          Event: {tx.eventType}
+                        </div>
+                      </div>
+                      <div className="text-right whitespace-nowrap">
+                        <div className={cn('font-medium', amountColorClass)}>{formatted}</div>
+                        <div className="text-[10px] text-slate-400">
+                          {new Date(tx.createdAt).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Pagination Controls */}
+              {pagination &&
+                (() => {
+                  let displayTotalPages = 1;
+                  if (pagination.totalPages > 0) {
+                    displayTotalPages = pagination.totalPages;
+                  }
+                  return (
+                    <div className="pt-3 mt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400 shrink-0">
+                      <span>
+                        Page {page} of {displayTotalPages} ({pagination.total} total)
+                      </span>
                       <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          {tx.status}
-                        </span>
-                        <span className="text-slate-300 font-semibold">{tx.reference}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 truncate">
-                        Event: {tx.eventType}
+                        <button
+                          type="button"
+                          onClick={handlePrevPage}
+                          disabled={page <= 1}
+                          className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-colors"
+                        >
+                          Prev
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleNextPage}
+                          disabled={page >= pagination.totalPages}
+                          className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-colors"
+                        >
+                          Next
+                        </button>
                       </div>
                     </div>
-                    <div className="text-right whitespace-nowrap">
-                      <div className={cn('font-medium', amountColorClass)}>{formatted}</div>
-                      <div className="text-[10px] text-slate-400">
-                        {new Date(tx.createdAt).toLocaleTimeString()}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })()}
             </div>
-
-            {/* Pagination Controls */}
-            {pagination &&
-              (() => {
-                let displayTotalPages = 1;
-                if (pagination.totalPages > 0) {
-                  displayTotalPages = pagination.totalPages;
-                }
-                return (
-                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
-                    <span>
-                      Page {page} of {displayTotalPages} ({pagination.total} total)
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handlePrevPage}
-                        disabled={page <= 1}
-                        className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-all"
-                      >
-                        Prev
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleNextPage}
-                        disabled={page >= pagination.totalPages}
-                        className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-all"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-[#0E1017]/40 py-4">
+      <footer className="border-t border-slate-800 bg-[#11141D] py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 font-mono gap-2">
           <span>Idempotent Task Engine</span>
           <span>Live Ingestion &amp; Resilience Telemetry</span>

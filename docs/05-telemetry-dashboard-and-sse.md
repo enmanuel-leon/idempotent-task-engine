@@ -26,7 +26,12 @@ Accessible at `http://localhost:5180`.
 - **Server-Side Pagination:** Accepts `page` (default 1) and `pageSize` (default 10, max 50).
 - **Filtered State:** Optional filter by `status` (`PENDING`, `PROCESSING`, `COMPLETED`, `DEAD_LETTER`).
 - **Standard Envelope:** Returns `{ data: [...], pagination: { total, page, pageSize, totalPages } }`.
-- **Dual-Pane View:** The UI allows seamlessly toggling between the real-time Live SSE Buffer and the historical Paginated Events Ledger.
+- **Dual-Pane View with Visual Parity:** Left panel provides Live Ingestion Buffer (capped at 15 items to prevent DOM bloat) alongside Idempotency Audit Log, styled with fixed-height container parity matching the Settled Financial Ledger.
+- **Semantic Status Color System:** Standardized visual feedback:
+  - **Green:** Successful settlements and cache hits (`HIT`, `COMPLETED`).
+  - **Cyan:** Leader execution (`LEADER (MISS)`).
+  - **Amber:** Concurrent listeners and in-flight locks (`CONCURRENT HIT`, `TIMEOUT (WAITING)`).
+  - **Rose:** Negative amounts (refunds) and failures (`DEAD_LETTER`, `DLQ`).
 
 ## Safe Action Guards (Confirmation Modals)
 

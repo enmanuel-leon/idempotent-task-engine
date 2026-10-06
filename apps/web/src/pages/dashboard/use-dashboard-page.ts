@@ -550,6 +550,7 @@ export function useDashboardPage() {
     queryClient.invalidateQueries({ queryKey: ['transactions'] });
     queryClient.invalidateQueries({ queryKey: ['events'] });
     queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    toast.success('Telemetry and ledger refreshed');
   };
 
   const handleToggleFlaky = () => {

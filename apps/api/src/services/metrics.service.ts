@@ -6,7 +6,7 @@ interface DedupFeedItem {
   id: string;
   idempotencyKey: string;
   normalizedKey: string;
-  cacheStatus: 'HIT' | 'MISS' | 'HIT_CONCURRENT';
+  cacheStatus: 'HIT' | 'MISS' | 'HIT_CONCURRENT' | 'TIMEOUT_CONCURRENT';
   eventType: string;
   amountCents: number;
   durationMs: number;
@@ -65,7 +65,7 @@ class MetricsService {
     }
 
     this.recentFeed.unshift(item);
-    if (this.recentFeed.length > 30) {
+    if (this.recentFeed.length > 15) {
       this.recentFeed.pop();
     }
   }
