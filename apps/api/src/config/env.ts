@@ -34,7 +34,7 @@ const envSchema = z.object({
     .default('http://localhost:5180,http://127.0.0.1:5180')
     .transform((val) => val.split(',').map((origin) => origin.trim())),
   DATABASE_URL: z.string(),
-  REDIS_URL: z.string().default('redis://192.168.1.136:6379'),
+  REDIS_URL: z.string().default('redis://127.0.0.1:6379'),
 });
 
 export const env = envSchema.parse(process.env);

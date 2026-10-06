@@ -19,6 +19,13 @@ if (process.env.TEST_DATABASE_URL) {
   }
 }
 
+let testRedisUrl = 'redis://127.0.0.1:6379';
+if (process.env.TEST_REDIS_URL) {
+  testRedisUrl = process.env.TEST_REDIS_URL;
+} else if (process.env.REDIS_URL) {
+  testRedisUrl = process.env.REDIS_URL;
+}
+
 export default defineConfig({
   test: {
     environment: 'node',
@@ -26,6 +33,7 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: testDbUrl,
+      REDIS_URL: testRedisUrl,
       BETTER_AUTH_SECRET: 'test-super-secret-key-32-chars-min-length',
       BETTER_AUTH_URL: 'http://localhost:3000',
       EMAIL_ENABLED: 'false',

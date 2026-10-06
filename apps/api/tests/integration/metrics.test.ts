@@ -1,15 +1,30 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/app.js';
+import { prisma } from '../../src/lib/prisma.js';
 
 describe('Metrics Route Integration', () => {
   let app: FastifyInstance;
+  const testApiKey = 'test_metrics_key';
 
   beforeAll(async () => {
     app = await buildApp();
+    await prisma.merchantAccount.upsert({
+      where: { apiKey: testApiKey },
+      update: {},
+      create: {
+        apiKey: testApiKey,
+        name: 'Metrics Test Merchant',
+        balanceCents: 500000n,
+        currency: 'USD',
+      },
+    });
   });
 
   afterAll(async () => {
+    await prisma.merchantAccount.deleteMany({
+      where: { apiKey: testApiKey },
+    });
     await app.close();
   });
 
