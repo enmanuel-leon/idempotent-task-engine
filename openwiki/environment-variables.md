@@ -1,59 +1,66 @@
 # Environment Variables Architecture and Precedence
 
-## Precedence Rules
+This document defines the environment variable structure, hierarchy, and scoping rules for the Idempotent Task Engine.
 
-When the same variable is provided by more than one source, the following order applies from highest to lowest priority:
+---
 
-1. **System & OS / Container Process Variables** (`process.env`, Kubernetes Secrets/ConfigMaps, Docker) **[Highest Priority]**
+## 1. Precedence Hierarchy
+
+When the same variable is defined across multiple sources, the following order of precedence applies from highest to lowest priority:
+
+1. **System & OS / Container Process Variables** (`process.env`, Kubernetes Secrets/ConfigMaps, Docker runtime) **[Highest Priority]**
 2. **Application-Specific `.env`** (`apps/api/.env` or `apps/web/.env`)
 3. **Monorepo Root `.env`** (`/.env`)
 4. **Code Defaults & Fallbacks** (`env.ts` / Zod defaults) **[Lowest Priority]**
 
-For example, if `DATABASE_URL` exists in both `.env` and `apps/api/.env`, the API-specific value must win. A process variable such as `DATABASE_URL=... pnpm dev` must win over both files.
+For example, if `PORT` is defined in both `/.env` and `apps/api/.env`, the value in `apps/api/.env` wins. Any value injected directly into the process environment (e.g., `PORT=3100 pnpm dev`) overrides all file-based configurations.
 
-Environment loaders must preserve variables that already exist in `process.env`. Loading an `.env` file must not overwrite values injected by the operating system, Docker, CI, or Kubernetes.
-
-## File Responsibilities
-
-Use each file for a specific scope:
-
-- **Root `.env`**: Shared local infrastructure values consumed by Docker Compose, such as PostgreSQL, Redis, and MinIO settings.
-- **`apps/api/.env`**: Backend runtime values, including database, Redis, authentication, storage, email, and server settings.
-- **`SEED_ADMIN_EMAIL`**: Optional seed administrator email. The interactive CLI prompts for it when unset and defaults to `admin@example.com`.
-- **`SEED_ADMIN_PASSWORD`**: Optional seed administrator password. The interactive CLI prompts for it when unset; non-interactive runs must provide it when creating the administrator. It must contain between 8 and 128 characters and must never be committed.
-- **`apps/web/.env`**: Frontend build-time values. Only variables prefixed with `VITE_` are eligible for exposure in the browser.
-
-The root `.env` is not a secure secret store. Do not place backend secrets there unless the file is only consumed by a trusted backend or infrastructure process.
-
-## Application Loading Behavior
-
-The API loads its application environment file from the API working directory. The root `.env` is currently used directly by Docker Compose and is not automatically merged into every application process.
-
-If a future loader reads both the root and application files, it must use this order:
-
-1. Load the root `.env` as the shared fallback.
-2. Load the application `.env` as the app-specific override.
-3. Restore existing `process.env` values so system and container variables remain authoritative.
-
-This makes the application file more specific than the root file without exposing backend configuration to the frontend.
+Environment loaders preserve existing variables in `process.env` and never overwrite values injected by the operating system, Docker, CI, or Kubernetes.
 
 ---
 
-## Local Development Strategy
+## 2. File Responsibilities & Scoping
 
-- Keep server configuration inside `apps/api/.env` and web configuration in `apps/web/.env`.
-- Root `/.env` is read by Docker Compose (`pnpm infra:up`) for local PostgreSQL, Redis, and MinIO infrastructure.
-
----
-
-## Production Deployment Strategy
-
-- **Never commit `.env` files to Git**.
-- Production variables are injected directly into container memory via Kubernetes ConfigMaps (`k8s/configmap.yaml`) and Secrets (`k8s/secrets.yaml`).
+- **Root `.env`**: Shared local infrastructure values consumed by Docker Compose (e.g., PostgreSQL container credentials and Redis port mappings).
+- **`apps/api/.env`**: Backend Fastify runtime settings, database connection with strict schema isolation, Redis connection, and HTTP gateway bindings.
+- **`apps/web/.env`**: Frontend Vite client settings. Only variables prefixed with `VITE_` are exposed to the browser.
 
 ---
 
-## Vite Frontend (`VITE_*`) Build-Time Injection
+## 3. Supported Environment Variables Matrix
 
-- **Backend (`apps/api`)**: Evaluates `process.env` dynamically at **runtime** on every HTTP request.
-- **Frontend (`apps/web`)**: Vite replaces `VITE_*` variables at **compile time** (`pnpm build`). Pass `VITE_API_URL` during the container image build phase.
+### Backend (`apps/api/.env`)
+
+| Variable | Type | Default Value | Required | Purpose |
+| :--- | :--- | :--- | :---: | :--- |
+| `NODE_ENV` | `enum` | `development` | No | Runtime mode (`development`, `production`, `test`). |
+| `PORT` | `number` | `3100` | No | Fastify HTTP server listener port. |
+| `HOST` | `string` | `0.0.0.0` | No | Network interface IP address to bind. |
+| `CORS_ORIGIN` | `string` | `http://localhost:5180,http://127.0.0.1:5180` | No | Comma-separated list of permitted browser origins. |
+| `DATABASE_URL` | `string` | _(Must be provided)_ | **Yes** | PostgreSQL connection URI. **Must include `?schema=task_engine`**. |
+| `REDIS_URL` | `string` | `redis://127.0.0.1:6379` | No | Redis 7 connection string for locks, queues, and cache. |
+
+### Frontend (`apps/web/.env`)
+
+| Variable | Type | Default Value | Required | Purpose |
+| :--- | :--- | :--- | :---: | :--- |
+| `VITE_API_URL` | `string` | `""` (Empty in dev) | No | Target API URL. Leave empty in development to use Vite's built-in reverse proxy (`/api`), avoiding cross-origin issues. |
+
+---
+
+## 4. PostgreSQL Schema Isolation Invariant
+
+The `DATABASE_URL` variable **must** specify the schema query parameter:
+
+```env
+DATABASE_URL=postgresql://root:root@192.168.1.136:5434/app_template_db?schema=task_engine
+```
+
+Omitting `?schema=task_engine` will cause Prisma to target the `public` schema, violating the multi-tenant isolation invariant.
+
+---
+
+## 5. Runtime vs. Build-Time Evaluation
+
+- **Backend (`apps/api`)**: Evaluated dynamically at **runtime** on application startup and request processing.
+- **Frontend (`apps/web`)**: Evaluated at **build-time** by Vite (`pnpm build`). `VITE_*` variables are statically replaced in JavaScript bundles during compilation. For production deployments, ensure `VITE_API_URL` is set before invoking the build command.

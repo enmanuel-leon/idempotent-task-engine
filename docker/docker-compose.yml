@@ -1,7 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg17
-    container_name: app-template-postgres-prod
+    container_name: idempotent-task-engine-postgres-prod
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -17,7 +17,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: app-template-redis-prod
+    container_name: idempotent-task-engine-redis-prod
     restart: unless-stopped
     volumes:
       - redis_prod_data:/data
@@ -26,30 +26,47 @@ services:
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
-    container_name: app-template-api
+    container_name: idempotent-task-engine-api
     restart: unless-stopped
     ports:
-      - '3000:3000'
+      - '3100:3100'
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3100
       HOST: 0.0.0.0
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/app_template_db?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/app_template_db?schema=task_engine
       REDIS_URL: redis://redis:6379
-      BETTER_AUTH_SECRET: super-secret-key-change-in-production-min-32-chars
-      BETTER_AUTH_URL: http://localhost:3000
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    command: ['node', 'apps/api/dist/worker.js']
+    container_name: idempotent-task-engine-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/app_template_db?schema=task_engine
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   web:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
-    container_name: app-template-web
+    container_name: idempotent-task-engine-web
     restart: unless-stopped
     ports:
-      - '80:8080'
+      - '5180:8080'
     depends_on:
       - api
 

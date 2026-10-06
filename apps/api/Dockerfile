@@ -24,6 +24,6 @@ COPY --from=builder --chown=node:node /app/apps/api/node_modules ./apps/api/node
 
 USER node
 
-EXPOSE 3000
+EXPOSE 3100
 
 CMD ["node", "apps/api/dist/server.js"]

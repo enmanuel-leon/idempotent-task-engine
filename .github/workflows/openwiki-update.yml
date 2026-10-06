@@ -17,7 +17,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: main
           fetch-depth: 0
           filter: blob:none
 
@@ -56,7 +56,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: main
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -71,19 +71,23 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Authenticate to Google Cloud
+        id: auth
+        continue-on-error: true
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: 'projects/79004233678/locations/global/workloadIdentityPools/pool-github-actions-cicd/providers/provider-github-actions-cicd'
-          service_account: 'sa-github-actions-cicd@entropy-workbench.iam.gserviceaccount.com'
+          workload_identity_provider: ${{ vars.WIF_PROVIDER || 'projects/79004233678/locations/global/workloadIdentityPools/pool-github-actions-cicd/providers/provider-github-actions-cicd' }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT || 'sa-github-actions-cicd@entropy-workbench.iam.gserviceaccount.com' }}
 
       - name: Run OpenWiki
+        if: steps.auth.outcome == 'success'
         run: pnpm --allow-build=better-sqlite3 dlx openwiki@0.3.1 code --update --print
         env:
-          OPENWIKI_PROVIDER: gemini-enterprise
-          GOOGLE_CLOUD_PROJECT: entropy-workbench
-          OPENWIKI_MODEL_ID: gemini-3.6-flash
+          OPENWIKI_PROVIDER: ${{ vars.OPENWIKI_PROVIDER || 'gemini-enterprise' }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT || 'entropy-workbench' }}
+          OPENWIKI_MODEL_ID: ${{ vars.OPENWIKI_MODEL_ID || 'gemini-3.6-flash' }}
 
       - name: Create OpenWiki update pull request
+        if: steps.auth.outcome == 'success'
         uses: peter-evans/create-pull-request@v7
         with:
           add-paths: |
@@ -91,7 +95,7 @@ jobs:
             AGENTS.md
             CLAUDE.md
           branch: openwiki/update
-          base: develop
+          base: main
           commit-message: 'docs: update OpenWiki'
           title: 'docs: update OpenWiki'
           body: |

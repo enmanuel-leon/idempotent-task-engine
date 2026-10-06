@@ -3,24 +3,20 @@ name: CI & Test Suite
 on:
   pull_request:
     branches:
-      - develop
-      - preview
       - main
   push:
     branches:
-      - develop
-      - preview
       - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   NODE_ENV: test
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app_template_test_db?schema=public
   REDIS_URL: redis://localhost:6379
-  BETTER_AUTH_SECRET: test-super-secret-key-32-chars-min-length
-  BETTER_AUTH_URL: http://127.0.0.1:3000
-  STORAGE_PROVIDER: local
-  STORAGE_BUCKET: test-bucket
 
 jobs:
   verify:
@@ -29,7 +25,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -67,8 +63,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run Quality Checks (Format, Lint, Typecheck)
-        run: pnpm format:check && pnpm lint && pnpm typecheck
+      - name: Run Quality Checks (Format, Lint, Typecheck, Knip)
+        run: pnpm format:check && pnpm lint && pnpm typecheck && pnpm knip
 
       - name: Run Build
         run: pnpm build
@@ -79,7 +75,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

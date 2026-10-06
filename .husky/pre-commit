@@ -1,4 +1,6 @@
 pnpm exec lint-staged
 if command -v gitleaks >/dev/null 2>&1; then
   gitleaks protect --staged --verbose
+else
+  echo "Notice: gitleaks is not installed locally. Secrets scanning will be enforced in CI."
 fi

@@ -3,14 +3,14 @@ name: Security Scanning
 on:
   pull_request:
     branches:
-      - develop
-      - preview
       - main
   push:
     branches:
-      - develop
-      - preview
       - main
+
+permissions:
+  contents: read
+  security-events: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -19,7 +19,6 @@ jobs:
   audit:
     name: pnpm audit
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js 24
@@ -38,24 +37,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install gitleaks
-        run: |
-          GITLEAKS_VERSION=8.21.2
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz -C /usr/local/bin gitleaks
-          gitleaks version
       - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@v2
         env:
-          GITLEAKS_LOG_OPTS: >-
-            ${{ github.event_name == 'pull_request'
-                && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha)
-                || (github.event.before != '0000000000000000000000000000000000000000'
-                    && format('{0}..{1}', github.event.before, github.event.after)
-                    || '') }}
-        run: |
-          if [ -n "$GITLEAKS_LOG_OPTS" ]; then
-            gitleaks detect --source . --no-banner --verbose --exit-code 1 \
-              --log-opts="$GITLEAKS_LOG_OPTS"
-          else
-            gitleaks detect --source . --no-banner --verbose --exit-code 1
-          fi
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -12,12 +12,12 @@ tasks:
       - pnpm dev
 
   ports:free:
-    desc: Clear any process listening on ports 3000 and 5173
+    desc: Clear any process listening on ports 3100 and 5180
     cmds:
       - pnpm ports:free
 
   infra:up:
-    desc: Start local infrastructure containers (Postgres, Redis, MinIO)
+    desc: Start local infrastructure containers (Postgres, Redis)
     cmds:
       - pnpm infra:up
 
@@ -39,7 +39,7 @@ tasks:
   clean:
     desc: Reset local environment, prune docker volumes, and re-seed
     cmds:
-      - pnpm clean:reset
+      - pnpm db:purge
 
   build:
     desc: Build all apps for production
