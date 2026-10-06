@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AlertTriangle, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Trash2, X, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface ConfirmModalProps {
@@ -92,11 +92,12 @@ export function ConfirmModal({
             onClick={onConfirm}
             disabled={isLoading}
             className={cn(
-              'px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50',
+              'px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 inline-flex items-center justify-center gap-1.5',
               confirmBtnClass,
             )}
           >
-            {confirmLabel}
+            {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            <span>{confirmLabel}</span>
           </button>
         </div>
       </div>
