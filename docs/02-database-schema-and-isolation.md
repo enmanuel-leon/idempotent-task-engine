@@ -18,6 +18,49 @@ Connection URI:
 postgresql://root:root@192.168.1.136:5434/app_template_db?schema=task_engine
 ```
 
+## Entity-Relationship Diagram (ERD)
+
+```mermaid
+erDiagram
+    MerchantAccount ||--o{ WebhookEvent : "receives (1:N)"
+    MerchantAccount ||--o{ Transaction : "owns (1:N)"
+    WebhookEvent ||--o| Transaction : "settles (1:1)"
+
+    MerchantAccount {
+        uuid id PK
+        string apiKey UK "Merchant Authentication Key"
+        string name "Merchant Business Name"
+        bigint balanceCents "Integer Cents Balance"
+        string currency "ISO 4217 Currency"
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    WebhookEvent {
+        uuid id PK
+        uuid merchantId FK
+        string idempotencyKey "Client Idempotency Key"
+        string eventType "PAYMENT_SUCCEEDED etc"
+        string status "PENDING, PROCESSING, COMPLETED, DEAD_LETTER"
+        jsonb payload "Raw Request Payload"
+        jsonb responseBody "Cached Response Body"
+        int attempts "Execution Attempt Counter"
+        text lastError "Stack Trace or Error Message"
+        timestamp processedAt
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    Transaction {
+        uuid id PK
+        uuid merchantId FK
+        uuid webhookEventId FK,UK "Unique Settled Event"
+        bigint amountCents "Signed Integer Cents"
+        string reference "Merchant Transaction Reference"
+        timestamp createdAt
+    }
+```
+
 ## Data Model Specifications
 
 All monetary values follow the non-negotiable **Integer Cents Invariant** (stored as `BigInt` or `Int` cents, never floating point numbers).

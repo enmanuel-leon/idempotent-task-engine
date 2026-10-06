@@ -149,6 +149,26 @@ members, invitation history, transactions, etc.) MUST implement server-side pagi
   retrieval: `skip: (page - 1) * pageSize`, `take: pageSize`, alongside
   `prisma.<model>.count({ where })`.
 
+### 2.13 Living Documentation & Knowledge Maintenance Standards (OpenWiki Paradigm)
+
+Documentation in this repository is treated as living code and must never drift from code state:
+
+1. **Passive Synchronization:** Whenever an engineer or AI agent creates, modifies, or deletes an
+   API route endpoint, Prisma database model, Redis prefix, or BullMQ worker queue, the
+   corresponding architecture specification in `docs/` MUST be updated in the same changeset.
+2. **Visual Documentation Standard (Native Mermaid Requirement):**
+   - Every asynchronous, concurrent, or multi-service distributed flow MUST be accompanied by a
+     native GitHub-rendered Mermaid diagram (`sequenceDiagram`, `stateDiagram-v2`, `flowchart`).
+   - Pure text descriptions of complex temporal interactions (locks, pub/sub, queues) without a
+     supporting diagram are strictly prohibited.
+3. **Standardized Architecture Spec Layout:**
+   All markdown documents under `docs/` must follow the standardized format:
+   - **Prerequisites & Port/Protocol Matrix:** Target endpoints, URIs, and schema namespaces.
+   - **Visual Diagrams:** Native GitHub-compatible Mermaid sequence, state, or component charts.
+   - **Mathematical / State Invariants:** Formal equations and guarantees.
+   - **Error Codes Matrix:** HTTP statuses mapped to machine-readable string constants.
+   - **Operational Runbooks:** Explicit diagnostic commands and incident recovery steps.
+
 ---
 
 ## 3. Database Architecture & Schema Ownership
@@ -322,5 +342,7 @@ Before declaring any engineering task complete, verify:
 - [ ] Table polling banned; manual refresh button implemented with visual loading state.
 - [ ] React functional component props typed with `Readonly<Props>`.
 - [ ] Database changes managed exclusively via Prisma Migrate (`apps/api/prisma/migrations/`).
+- [ ] Living documentation in docs/ synchronized with native Mermaid diagrams for distributed flows.
+- [ ] Security toolchain verified: pnpm audit clean and Gitleaks secret detection passed.
 - [ ] Verification command suite executed and 100% green (`pnpm check`, `pnpm audit`, `pnpm knip`).
 - [ ] Mandatory User Approval obtained before executing `git commit` or `git push`.

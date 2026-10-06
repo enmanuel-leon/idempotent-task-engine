@@ -1,0 +1,15 @@
+# Gitleaks Configuration for idempotent-task-engine
+title = "Idempotent Task Engine Gitleaks Profile"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for benign test fixtures and mock API keys"
+paths = [
+  '''apps/api/tests/.*''',
+  '''apps/web/tests/.*''',
+  '''apps/api/prisma/seed\.ts''',
+  '''docs/.*''',
+]
+regexes = ['''test_merchant_sec_key_12345''']
