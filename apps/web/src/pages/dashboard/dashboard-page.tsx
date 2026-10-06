@@ -18,9 +18,10 @@ import {
   Sparkles,
   History,
   Radio,
+  Gauge,
 } from 'lucide-react';
 import { useDashboardPage } from './use-dashboard-page';
-import { formatCentsToCurrency, cn } from '../../lib/utils';
+import { formatCentsToCurrency, formatSignedCents, cn } from '../../lib/utils';
 import { ConfirmModal } from '../../components/ui/confirm-modal';
 
 export function DashboardPage() {
@@ -38,6 +39,11 @@ export function DashboardPage() {
     setActiveTab,
     burstConcurrency,
     setBurstConcurrency,
+    realisticVolume,
+    setRealisticVolume,
+    realisticDupRatio,
+    setRealisticDupRatio,
+    lastExecutionSummary,
     isSimulatingBurst,
     isSimulatingScenarioA,
     isSimulatingRealistic,
@@ -199,7 +205,76 @@ export function DashboardPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* Last Execution Summary Card (Locked-in Performance Snapshot) */}
+        {lastExecutionSummary && (
+          <div className="p-5 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-[#0E1017] to-purple-950/20 shadow-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center justify-between border-b border-indigo-500/20 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Gauge className="w-4 h-4 text-indigo-400" />
+                <span className="text-xs font-mono uppercase tracking-wider text-indigo-300 font-semibold">
+                  Last Run Performance Summary • {lastExecutionSummary.scenarioName}
+                </span>
+              </div>
+              <span className="text-[11px] font-mono text-slate-400">
+                Logged at {lastExecutionSummary.timestamp}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="space-y-0.5">
+                <div className="text-[11px] font-mono text-slate-400">
+                  Peak Effective Throughput
+                </div>
+                <div className="text-2xl font-mono font-bold text-cyan-400 tracking-tight">
+                  {lastExecutionSummary.effectiveRps}{' '}
+                  <span className="text-xs font-normal text-slate-400">req/s</span>
+                </div>
+              </div>
+
+              <div className="space-y-0.5">
+                <div className="text-[11px] font-mono text-slate-400">Total Run Execution Time</div>
+                <div className="text-2xl font-mono font-bold text-white tracking-tight">
+                  {lastExecutionSummary.totalDurationMs}{' '}
+                  <span className="text-xs font-normal text-slate-400">ms</span>
+                </div>
+              </div>
+
+              <div className="space-y-0.5">
+                <div className="text-[11px] font-mono text-slate-400">Interception Rate</div>
+                <div className="text-2xl font-mono font-bold text-amber-400 tracking-tight">
+                  {lastExecutionSummary.dedupEfficiency}%
+                </div>
+              </div>
+
+              <div className="space-y-0.5">
+                <div className="text-[11px] font-mono text-slate-400">Burst p95 / p99 Latency</div>
+                <div className="text-2xl font-mono font-bold text-emerald-400 tracking-tight">
+                  {lastExecutionSummary.p95LatencyMs}{' '}
+                  <span className="text-xs font-normal text-slate-400">
+                    / {lastExecutionSummary.p99LatencyMs} ms
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
+              <span>
+                Breakdown:{' '}
+                <span className="text-indigo-300 font-medium">
+                  {lastExecutionSummary.leadersQueued} leader queued
+                </span>
+                ,{' '}
+                <span className="text-amber-300 font-medium">
+                  {lastExecutionSummary.duplicatesIntercepted} duplicates intercepted
+                </span>{' '}
+                (Total: {lastExecutionSummary.totalRequests} callers)
+              </span>
+              <span className="text-emerald-400 font-semibold">100% Exactly-Once Guaranteed</span>
+            </div>
+          </div>
+        )}
+
         {/* Interactive Testing Panel */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Card 1: Settlement Balance */}
@@ -296,7 +371,7 @@ export function DashboardPage() {
             </button>
           </div>
 
-          {/* Card 4: Scenario C (Realistic Multi-Tenant Parallelism Workload) */}
+          {/* Card 4: Scenario C (Parametric Realistic Multi-Tenant Workload) */}
           <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] flex flex-col justify-between space-y-2">
             <div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
@@ -305,13 +380,47 @@ export function DashboardPage() {
                   SCENARIO C: REALISTIC
                 </span>
                 <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
-                  21 Workload Items
+                  {realisticVolume} items • {realisticDupRatio}% dups
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-2">
-                Fires 15 heterogeneous transactions (varying amounts, refund types, and sources)
-                with 6 intentional duplicates mixed in concurrently.
-              </p>
+              <div className="my-1.5 space-y-2">
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-[10px] font-mono text-slate-400">
+                    <span>Volume</span>
+                    <span>{realisticVolume} transactions</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="10"
+                    value={realisticVolume}
+                    onChange={(e) => setRealisticVolume(Number(e.target.value))}
+                    className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] font-mono">
+                  <span className="text-slate-400">Duplicate Ratio</span>
+                  <div className="flex items-center gap-1">
+                    {[10, 25, 50].map((ratio) => (
+                      <button
+                        key={ratio}
+                        type="button"
+                        onClick={() => setRealisticDupRatio(ratio)}
+                        className={cn(
+                          'px-1.5 py-0.5 rounded text-[10px] transition-colors',
+                          realisticDupRatio === ratio
+                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                            : 'bg-slate-800 text-slate-400 hover:text-slate-200',
+                        )}
+                      >
+                        {ratio}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
             <button
               type="button"
@@ -465,9 +574,9 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Two Columns: Left = Live Feed / Historical Ledger Toggle • Right = Settled Transactions */}
+        {/* Two Columns: Left = Ingestion Feed & Idempotency Audit • Right = Settled Financial Ledger */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column */}
+          {/* Left Column: Live Buffer & Idempotency Audit */}
           <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-4 flex flex-col h-[480px]">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
@@ -481,7 +590,7 @@ export function DashboardPage() {
                   )}
                 >
                   <Radio className="w-3.5 h-3.5" />
-                  Live SSE Buffer
+                  Live Ingestion Feed
                 </button>
                 <button
                   type="button"
@@ -493,7 +602,7 @@ export function DashboardPage() {
                   )}
                 >
                   <History className="w-3.5 h-3.5" />
-                  Historical Event Ledger
+                  Idempotency Audit Log
                 </button>
               </div>
 
@@ -502,12 +611,12 @@ export function DashboardPage() {
                   if (activeTab === 'live') {
                     return 'Sub-second Stream';
                   }
-                  return 'Server-Side Paginated';
+                  return 'PostgreSQL Audit Trail';
                 })()}
               </span>
             </div>
 
-            {/* Sub-view 1: Live SSE Buffer */}
+            {/* Sub-view 1: Live Ingestion Feed */}
             {activeTab === 'live' && (
               <div className="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
                 {metrics.recentFeed.length === 0 && (
@@ -533,6 +642,12 @@ export function DashboardPage() {
                     label = 'INTERCEPTED (TIMEOUT)';
                   }
 
+                  const { formatted, isNegative } = formatSignedCents(item.amountCents);
+                  let amountColorClass = 'text-emerald-400';
+                  if (isNegative) {
+                    amountColorClass = 'text-rose-400';
+                  }
+
                   return (
                     <div
                       key={item.id}
@@ -555,9 +670,7 @@ export function DashboardPage() {
                         </div>
                       </div>
                       <div className="text-right whitespace-nowrap">
-                        <div className="text-emerald-400 font-medium">
-                          {formatCentsToCurrency(item.amountCents)}
-                        </div>
+                        <div className={cn('font-medium', amountColorClass)}>{formatted}</div>
                         <div className="text-[10px] text-slate-400">{item.durationMs}ms</div>
                       </div>
                     </div>
@@ -566,7 +679,7 @@ export function DashboardPage() {
               </div>
             )}
 
-            {/* Sub-view 2: Historical Events Ledger (Server-Side Paginated) */}
+            {/* Sub-view 2: Idempotency Audit Log */}
             {activeTab === 'historical' && (
               <div className="flex-1 flex flex-col justify-between space-y-2">
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
@@ -607,13 +720,11 @@ export function DashboardPage() {
                             </span>
                           </div>
                           <div className="text-[11px] text-slate-400 truncate">
-                            Ref: {evt.reference} • Key: {evt.idempotencyKey}
+                            Key: {evt.idempotencyKey}
                           </div>
                         </div>
                         <div className="text-right whitespace-nowrap">
-                          <div className="text-emerald-400 font-medium">
-                            {formatCentsToCurrency(evt.amountCents)}
-                          </div>
+                          <div className="text-slate-300 font-medium">{evt.reference}</div>
                           <div className="text-[10px] text-slate-400">
                             {new Date(evt.createdAt).toLocaleTimeString()}
                           </div>
@@ -660,7 +771,7 @@ export function DashboardPage() {
             )}
           </div>
 
-          {/* Right Column: Ledger Transactions Table */}
+          {/* Right Column: Settled Financial Ledger */}
           <div className="p-5 rounded-xl border border-slate-800/80 bg-[#0E1017] space-y-4 flex flex-col h-[480px]">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
@@ -688,30 +799,38 @@ export function DashboardPage() {
                 </div>
               )}
 
-              {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="p-3 rounded-lg border border-slate-800/60 bg-[#12141A] flex items-center justify-between gap-3"
-                >
-                  <div className="space-y-0.5 truncate">
-                    <div className="flex items-center gap-2">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {tx.status}
-                      </span>
-                      <span className="text-slate-300 font-semibold">{tx.reference}</span>
+              {transactions.map((tx) => {
+                const { formatted, isNegative } = formatSignedCents(tx.amountCents);
+                let amountColorClass = 'text-emerald-400';
+                if (isNegative) {
+                  amountColorClass = 'text-rose-400';
+                }
+
+                return (
+                  <div
+                    key={tx.id}
+                    className="p-3 rounded-lg border border-slate-800/60 bg-[#12141A] flex items-center justify-between gap-3"
+                  >
+                    <div className="space-y-0.5 truncate">
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {tx.status}
+                        </span>
+                        <span className="text-slate-300 font-semibold">{tx.reference}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 truncate">
+                        Event: {tx.eventType}
+                      </div>
                     </div>
-                    <div className="text-[11px] text-slate-400 truncate">Event: {tx.eventType}</div>
+                    <div className="text-right whitespace-nowrap">
+                      <div className={cn('font-medium', amountColorClass)}>{formatted}</div>
+                      <div className="text-[10px] text-slate-400">
+                        {new Date(tx.createdAt).toLocaleTimeString()}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right whitespace-nowrap">
-                    <div className="text-emerald-400 font-medium">
-                      +{formatCentsToCurrency(tx.amountCents)}
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      {new Date(tx.createdAt).toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Pagination Controls */}

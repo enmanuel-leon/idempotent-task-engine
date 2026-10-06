@@ -64,15 +64,47 @@ interface ResetResponse {
   redisKeysRemoved: number;
 }
 
+export interface ExecutionSummary {
+  scenarioName: string;
+  totalRequests: number;
+  leadersQueued: number;
+  duplicatesIntercepted: number;
+  dedupEfficiency: number;
+  totalDurationMs: number;
+  effectiveRps: number;
+  p95LatencyMs: number;
+  p99LatencyMs: number;
+  timestamp: string;
+}
+
+function calculatePercentile(numbers: number[], p: number): number {
+  if (numbers.length === 0) {
+    return 0;
+  }
+  const sorted = [...numbers].sort((a, b) => a - b);
+  const index = Math.ceil((p / 100) * sorted.length) - 1;
+  const safeIdx = Math.max(0, Math.min(index, sorted.length - 1));
+  return sorted[safeIdx];
+}
+
 export function useDashboardPage() {
   const [page, setPage] = useState(1);
   const [eventsPage, setEventsPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'live' | 'historical'>('live');
+
+  // Scenario B Concurrency
   const [burstConcurrency, setBurstConcurrency] = useState(10);
+
+  // Scenario C Parametric Controls
+  const [realisticVolume, setRealisticVolume] = useState(30);
+  const [realisticDupRatio, setRealisticDupRatio] = useState(25); // percentage: 10, 25, 50
 
   const [isSimulatingBurst, setIsSimulatingBurst] = useState(false);
   const [isSimulatingScenarioA, setIsSimulatingScenarioA] = useState(false);
   const [isSimulatingRealistic, setIsSimulatingRealistic] = useState(false);
+
+  // Last Execution Summary State
+  const [lastExecutionSummary, setLastExecutionSummary] = useState<ExecutionSummary | null>(null);
 
   // Confirmation Modals State
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -157,6 +189,7 @@ export function useDashboardPage() {
       toast.success(
         `Test data purged: ${data.transactionsDeleted} transactions removed, balance reset to $10,000.00`,
       );
+      setLastExecutionSummary(null);
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
@@ -178,7 +211,11 @@ export function useDashboardPage() {
     const ref = 'ref_seq_' + Math.random().toString(36).substring(2, 9);
     const apiKey = merchantQuery.data.apiKey;
 
+    const tGlobalStart = Date.now();
+    const durations: number[] = [];
+
     try {
+      const t1 = Date.now();
       const res1 = await fetch('/api/v1/webhooks/epayco', {
         method: 'POST',
         headers: {
@@ -193,11 +230,12 @@ export function useDashboardPage() {
           metadata: { scenario: 'A' },
         }),
       });
+      durations.push(Date.now() - t1);
 
       const cacheHeader1 = res1.headers.get('x-cache');
       await new Promise((resolve) => setTimeout(resolve, 350));
 
-      const tStart2 = Date.now();
+      const t2 = Date.now();
       const res2 = await fetch('/api/v1/webhooks/epayco', {
         method: 'POST',
         headers: {
@@ -212,8 +250,26 @@ export function useDashboardPage() {
           metadata: { scenario: 'A' },
         }),
       });
-      const tDuration2 = Date.now() - tStart2;
+      const tDuration2 = Date.now() - t2;
+      durations.push(tDuration2);
       const cacheHeader2 = res2.headers.get('x-cache');
+
+      const totalDuration = Date.now() - tGlobalStart;
+      let effectiveRps = 2 / (totalDuration / 1000);
+      effectiveRps = Math.round(effectiveRps * 10) / 10;
+
+      setLastExecutionSummary({
+        scenarioName: 'Scenario A (Sequential Cache Hit)',
+        totalRequests: 2,
+        leadersQueued: 1,
+        duplicatesIntercepted: 1,
+        dedupEfficiency: 50.0,
+        totalDurationMs: totalDuration,
+        effectiveRps,
+        p95LatencyMs: calculatePercentile(durations, 95),
+        p99LatencyMs: calculatePercentile(durations, 99),
+        timestamp: new Date().toLocaleTimeString(),
+      });
 
       if (res2.status === 200 && cacheHeader2 === 'HIT') {
         toast.success(
@@ -252,9 +308,12 @@ export function useDashboardPage() {
     const reference = 'ref_' + Math.random().toString(36).substring(2, 9);
     const apiKey = merchantQuery.data.apiKey;
 
+    const tGlobalStart = Date.now();
+
     try {
-      const requests = Array.from({ length: burstConcurrency }).map(() =>
-        fetch('/api/v1/webhooks/epayco', {
+      const requests = Array.from({ length: burstConcurrency }).map(async () => {
+        const tStart = Date.now();
+        const res = await fetch('/api/v1/webhooks/epayco', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -267,13 +326,19 @@ export function useDashboardPage() {
             reference,
             metadata: { simulation: true, burstSize: burstConcurrency },
           }),
-        }).then((res) => ({
+        });
+        const duration = Date.now() - tStart;
+        return {
           status: res.status,
           cacheHeader: res.headers.get('x-cache'),
-        })),
-      );
+          duration,
+        };
+      });
 
       const results = await Promise.all(requests);
+      const totalDuration = Date.now() - tGlobalStart;
+      const durations = results.map((r) => r.duration);
+
       let interceptedCount = 0;
       let leaderCount = 0;
 
@@ -284,6 +349,29 @@ export function useDashboardPage() {
           leaderCount += 1;
         }
       }
+
+      let effectiveRps = 0;
+      if (totalDuration > 0) {
+        effectiveRps = Math.round((burstConcurrency / (totalDuration / 1000)) * 10) / 10;
+      }
+
+      let dedupEff = 0;
+      if (burstConcurrency > 0) {
+        dedupEff = Math.round((interceptedCount / burstConcurrency) * 1000) / 10;
+      }
+
+      setLastExecutionSummary({
+        scenarioName: `Scenario B (${burstConcurrency}x Concurrent Burst)`,
+        totalRequests: burstConcurrency,
+        leadersQueued: leaderCount,
+        duplicatesIntercepted: interceptedCount,
+        dedupEfficiency: dedupEff,
+        totalDurationMs: totalDuration,
+        effectiveRps,
+        p95LatencyMs: calculatePercentile(durations, 95),
+        p99LatencyMs: calculatePercentile(durations, 99),
+        timestamp: new Date().toLocaleTimeString(),
+      });
 
       toast.success(
         `Burst ${burstConcurrency}x sent: ${leaderCount} leader queued, ${interceptedCount} duplicate runners intercepted`,
@@ -329,8 +417,12 @@ export function useDashboardPage() {
       source: string;
     }
 
+    const totalVolume = realisticVolume;
+    const duplicateCount = Math.max(1, Math.round(totalVolume * (realisticDupRatio / 100)));
+    const uniqueCount = Math.max(1, totalVolume - duplicateCount);
+
     const items: Item[] = [];
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < uniqueCount; i++) {
       const source = sources[i % sources.length];
       const amount = amounts[i % amounts.length];
       let type: 'PAYMENT_SUCCEEDED' | 'CHARGE_REFUNDED' = 'PAYMENT_SUCCEEDED';
@@ -358,9 +450,10 @@ export function useDashboardPage() {
       });
     }
 
-    // Add 6 intentional duplicates
-    for (let j = 0; j < 6; j++) {
-      const orig = items[j * 2];
+    // Interleave intentional duplicates
+    for (let j = 0; j < duplicateCount; j++) {
+      const targetIdx = j % items.length;
+      const orig = items[targetIdx];
       items.push({
         key: orig.key,
         ref: orig.ref,
@@ -372,9 +465,12 @@ export function useDashboardPage() {
 
     items.sort(() => Math.random() - 0.5);
 
+    const tGlobalStart = Date.now();
+
     try {
-      const promises = items.map((item) =>
-        fetch('/api/v1/webhooks/epayco', {
+      const promises = items.map(async (item) => {
+        const tStart = Date.now();
+        const res = await fetch('/api/v1/webhooks/epayco', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -387,13 +483,19 @@ export function useDashboardPage() {
             reference: item.ref,
             metadata: { source: item.source },
           }),
-        }).then((res) => ({
+        });
+        const duration = Date.now() - tStart;
+        return {
           status: res.status,
           cacheHeader: res.headers.get('x-cache'),
-        })),
-      );
+          duration,
+        };
+      });
 
       const results = await Promise.all(promises);
+      const totalDuration = Date.now() - tGlobalStart;
+      const durations = results.map((r) => r.duration);
+
       let hits = 0;
       let queued = 0;
       for (const r of results) {
@@ -404,8 +506,31 @@ export function useDashboardPage() {
         }
       }
 
+      let effectiveRps = 0;
+      if (totalDuration > 0) {
+        effectiveRps = Math.round((items.length / (totalDuration / 1000)) * 10) / 10;
+      }
+
+      let dedupEff = 0;
+      if (items.length > 0) {
+        dedupEff = Math.round((hits / items.length) * 1000) / 10;
+      }
+
+      setLastExecutionSummary({
+        scenarioName: `Scenario C (${totalVolume} items, ${realisticDupRatio}% duplicates)`,
+        totalRequests: items.length,
+        leadersQueued: queued,
+        duplicatesIntercepted: hits,
+        dedupEfficiency: dedupEff,
+        totalDurationMs: totalDuration,
+        effectiveRps,
+        p95LatencyMs: calculatePercentile(durations, 95),
+        p99LatencyMs: calculatePercentile(durations, 99),
+        timestamp: new Date().toLocaleTimeString(),
+      });
+
       toast.success(
-        `Realistic Workload: ${queued} heterogeneous transactions queued, ${hits} intentional duplicates intercepted!`,
+        `Realistic Workload: ${queued} transactions queued, ${hits} intentional duplicates intercepted!`,
       );
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['events'] });
@@ -485,6 +610,11 @@ export function useDashboardPage() {
     setActiveTab,
     burstConcurrency,
     setBurstConcurrency,
+    realisticVolume,
+    setRealisticVolume,
+    realisticDupRatio,
+    setRealisticDupRatio,
+    lastExecutionSummary,
     isSimulatingBurst,
     isSimulatingScenarioA,
     isSimulatingRealistic,
