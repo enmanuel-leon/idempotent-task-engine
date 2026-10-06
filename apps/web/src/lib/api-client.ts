@@ -41,7 +41,7 @@ function notifyForbiddenOrganization(status: number, message: string): void {
   }
 }
 
-export async function apiFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
+export async function apiClient<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const url = getApiUrl(path);
   const requestHeaders = buildRequestHeaders(init);
 

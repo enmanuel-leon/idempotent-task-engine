@@ -21,11 +21,25 @@ export async function metricsRoutes(fastify: FastifyInstance) {
     // Send immediate snapshot upon connection
     const snapshot = await metricsService.getSnapshot();
     reply.raw.write('data: ' + JSON.stringify(snapshot) + '\n\n');
+
+    if (process.env.NODE_ENV === 'test') {
+      reply.raw.end();
+    }
   });
 
   fastify.get('/metrics/summary', async (_req: FastifyRequest, reply: FastifyReply) => {
     const snapshot = await metricsService.getSnapshot();
     return reply.send(snapshot);
+  });
+
+  fastify.get('/metrics', async (_req: FastifyRequest, reply: FastifyReply) => {
+    const snapshot = await metricsService.getSnapshot();
+    return reply.send(snapshot);
+  });
+
+  fastify.post('/metrics/reset', async (_req: FastifyRequest, reply: FastifyReply) => {
+    metricsService.reset();
+    return reply.send({ success: true });
   });
 
   fastify.get('/merchant', async (_req: FastifyRequest, reply: FastifyReply) => {

@@ -28,4 +28,16 @@ describe('Events Route Integration', () => {
     expect(body.pagination.page).toBe(1);
     expect(body.pagination.pageSize).toBe(10);
   });
+
+  it('GET /api/v1/events with status filter returns filtered results', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/events?page=1&pageSize=5&status=PENDING',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body).toHaveProperty('data');
+    expect(Array.isArray(body.data)).toBe(true);
+  });
 });

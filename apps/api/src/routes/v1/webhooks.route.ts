@@ -123,7 +123,9 @@ async function handleLeaderExecution(
   });
 
   return reply.header('X-Cache', 'MISS').code(202).send({
-    status: 'queued',
+    status: WEBHOOK_STATUS.PENDING,
+    taskId: event.id,
+    jobId: normalizedKey,
     eventId: event.id,
     normalizedKey,
     reference: body.reference,
@@ -249,6 +251,32 @@ export async function webhooksRoutes(fastify: FastifyInstance) {
     }
 
     const normalizedKey = idempotencyService.normalizeKey(merchant.id, idempotencyKey);
+
+    const existingEvent = await prisma.webhookEvent.findUnique({
+      where: {
+        merchantId_idempotencyKey: {
+          merchantId: merchant.id,
+          idempotencyKey,
+        },
+      },
+    });
+
+    if (existingEvent) {
+      const existingPayload = existingEvent.payload as Record<string, unknown>;
+      const isDifferent =
+        existingPayload.eventType !== body.eventType ||
+        Number(existingPayload.amountCents) !== Number(body.amountCents) ||
+        existingPayload.reference !== body.reference;
+
+      if (isDifferent) {
+        return reply.code(409).send({
+          statusCode: 409,
+          error: 'CONFLICT',
+          code: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD',
+          message: 'Idempotency key has already been used with a different request payload.',
+        });
+      }
+    }
 
     // Phase 1: Fast Redis Cache Hit
     const cachedResponse = await idempotencyService.getCachedResponse(normalizedKey);

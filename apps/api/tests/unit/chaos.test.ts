@@ -24,4 +24,22 @@ describe('ChaosService', () => {
       expect(chaosService.shouldInjectGatewayFailure()).toBe(false);
     }
   });
+
+  it('should evaluate gateway failure when enabled', () => {
+    chaosService.setFlakyGateway(true);
+    const result = chaosService.shouldInjectGatewayFailure();
+    expect(typeof result).toBe('boolean');
+    chaosService.setFlakyGateway(false);
+  });
+
+  it('should inject db latency when enabled', async () => {
+    chaosService.setDbLatencySpike(false);
+    await chaosService.injectDbLatencyIfEnabled();
+
+    chaosService.setDbLatencySpike(true);
+    const start = Date.now();
+    await chaosService.injectDbLatencyIfEnabled();
+    expect(Date.now() - start).toBeGreaterThanOrEqual(700);
+    chaosService.setDbLatencySpike(false);
+  });
 });

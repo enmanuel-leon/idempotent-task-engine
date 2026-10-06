@@ -14,37 +14,82 @@ const replaySchema = z.object({
   jobId: z.string().optional(),
 });
 
+async function handleGetDlqJobs(req: FastifyRequest, reply: FastifyReply) {
+  const query = querySchema.parse(req.query);
+  const start = (query.page - 1) * query.pageSize;
+  const end = start + query.pageSize - 1;
+
+  const [total, jobs] = await Promise.all([
+    webhooksDlqQueue.count(),
+    webhooksDlqQueue.getJobs(['failed', 'waiting', 'delayed'], start, end),
+  ]);
+
+  const totalPages = Math.ceil(total / query.pageSize);
+
+  const data = jobs.map((job) => ({
+    id: job.id,
+    name: job.name,
+    data: job.data,
+    failedReason: job.failedReason,
+    attemptsMade: job.attemptsMade,
+    timestamp: job.timestamp,
+  }));
+
+  return reply.send({
+    data,
+    pagination: {
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+      totalPages,
+    },
+  });
+}
+
 export async function dlqRoutes(fastify: FastifyInstance) {
-  fastify.get('/admin/dlq', async (req: FastifyRequest, reply: FastifyReply) => {
-    const query = querySchema.parse(req.query);
-    const start = (query.page - 1) * query.pageSize;
-    const end = start + query.pageSize - 1;
+  fastify.get('/admin/dlq', handleGetDlqJobs);
+  fastify.get('/dlq', handleGetDlqJobs);
 
-    const [total, jobs] = await Promise.all([
-      webhooksDlqQueue.count(),
-      webhooksDlqQueue.getJobs(['failed', 'waiting', 'delayed'], start, end),
-    ]);
+  fastify.post(
+    '/dlq/:id/retry',
+    async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const job = await webhooksDlqQueue.getJob(req.params.id);
+      if (!job) {
+        return reply.code(404).send({
+          error: 'NOT_FOUND',
+          message: 'DLQ job not found',
+        });
+      }
 
-    const totalPages = Math.ceil(total / query.pageSize);
+      await webhooksIncomingQueue.add(job.name, job.data, {
+        jobId: job.data.normalizedKey,
+      });
+      await job.remove();
 
-    const data = jobs.map((job) => ({
-      id: job.id,
-      name: job.name,
-      data: job.data,
-      failedReason: job.failedReason,
-      attemptsMade: job.attemptsMade,
-      timestamp: job.timestamp,
-    }));
+      await prisma.webhookEvent.updateMany({
+        where: {
+          merchantId: job.data.merchantId,
+          idempotencyKey: job.data.idempotencyKey,
+        },
+        data: {
+          status: WEBHOOK_STATUS.PENDING,
+          attempts: 0,
+          lastError: null,
+        },
+      });
 
-    return reply.send({
-      data,
-      pagination: {
-        total,
-        page: query.page,
-        pageSize: query.pageSize,
-        totalPages,
-      },
-    });
+      return reply.send({ success: true, jobId: job.id });
+    },
+  );
+
+  fastify.delete('/dlq', async (_req: FastifyRequest, reply: FastifyReply) => {
+    const jobs = await webhooksDlqQueue.getJobs(['failed', 'waiting', 'delayed']);
+    let purgedCount = 0;
+    for (const job of jobs) {
+      await job.remove();
+      purgedCount += 1;
+    }
+    return reply.send({ success: true, purgedCount });
   });
 
   fastify.post('/admin/dlq/replay', async (req: FastifyRequest, reply: FastifyReply) => {

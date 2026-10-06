@@ -36,13 +36,17 @@ export const errorHandlerPlugin = fp(async (app: FastifyInstance) => {
         });
       }
 
-      if (error.validation) {
+      if (error.name === 'ZodError' || error.validation) {
+        let details: unknown = error.validation;
+        if (!details && 'issues' in error) {
+          details = (error as unknown as { issues: unknown }).issues;
+        }
         return reply.status(400).send({
           error: {
             code: 'VALIDATION_ERROR',
             message: error.message,
             statusCode: 400,
-            details: error.validation,
+            details,
           },
         });
       }

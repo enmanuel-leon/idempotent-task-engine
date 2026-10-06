@@ -11,10 +11,20 @@ export async function chaosRoutes(fastify: FastifyInstance) {
     return reply.send(chaosService.getChaosStatus());
   });
 
+  fastify.get('/chaos', async (_req: FastifyRequest, reply: FastifyReply) => {
+    return reply.send(chaosService.getChaosStatus());
+  });
+
   fastify.post('/chaos/flaky-gateway', async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = toggleSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'BAD_REQUEST',
+        message: 'Invalid payload for flaky-gateway toggle',
+      });
+    }
     let nextState = !chaosService.isFlakyGatewayEnabled();
-    if (parsed.success && parsed.data.enabled !== undefined) {
+    if (parsed.data.enabled !== undefined) {
       nextState = parsed.data.enabled;
     }
     chaosService.setFlakyGateway(nextState);
@@ -23,8 +33,14 @@ export async function chaosRoutes(fastify: FastifyInstance) {
 
   fastify.post('/chaos/db-latency', async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = toggleSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'BAD_REQUEST',
+        message: 'Invalid payload for db-latency toggle',
+      });
+    }
     let nextState = !chaosService.isDbLatencySpikeEnabled();
-    if (parsed.success && parsed.data.enabled !== undefined) {
+    if (parsed.data.enabled !== undefined) {
       nextState = parsed.data.enabled;
     }
     chaosService.setDbLatencySpike(nextState);

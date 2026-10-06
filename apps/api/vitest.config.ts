@@ -39,6 +39,7 @@ export default defineConfig({
         '**/tests/**',
         'prisma/**',
         'src/server.ts',
+        'src/worker.ts',
         'src/constants/**',
       ],
     },

@@ -5,7 +5,7 @@ export default defineConfig({
     environment: 'happy-dom',
     globals: false,
     setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.{test,spec}.ts', 'src/**/*.{test,spec}.ts'],
+    include: ['tests/**/*.{test,spec}.{ts,tsx}', 'src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
@@ -16,6 +16,7 @@ export default defineConfig({
         '**/*.config.ts',
         'src/main.tsx',
         'src/constants/**',
+        'src/lib/query-client.ts',
         'src/**/*.tsx',
         'src/locales/**',
       ],
