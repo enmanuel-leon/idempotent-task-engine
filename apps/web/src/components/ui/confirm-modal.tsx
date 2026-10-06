@@ -54,10 +54,10 @@ export function ConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div
-        className="w-full max-w-md p-6 rounded-2xl border border-slate-800 bg-[#0E1017] shadow-2xl space-y-4 font-sans"
-        role="dialog"
+      <dialog
+        open
         aria-modal="true"
+        className="w-full max-w-md p-6 rounded-2xl border border-slate-800 bg-[#0E1017] shadow-2xl space-y-4 font-sans m-0 text-inherit"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
@@ -100,7 +100,7 @@ export function ConfirmModal({
             <span>{confirmLabel}</span>
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

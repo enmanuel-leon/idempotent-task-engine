@@ -36,7 +36,7 @@ class MetricsService {
   private ingestionTimestamps: number[] = [];
   private latenciesMs: number[] = [];
   private recentFeed: DedupFeedItem[] = [];
-  private sseClients: Set<FastifyReply> = new Set();
+  private readonly sseClients: Set<FastifyReply> = new Set();
   private broadcastInterval: NodeJS.Timeout | null = null;
 
   constructor() {

@@ -1,3 +1,5 @@
+import { randomInt } from 'node:crypto';
+
 class ChaosService {
   private flakyGateway = false;
   private dbLatency = false;
@@ -29,7 +31,7 @@ class ChaosService {
     if (!this.flakyGateway) {
       return false;
     }
-    return Math.random() < 0.25;
+    return randomInt(0, 100) < 25;
   }
 
   public async injectDbLatencyIfEnabled(): Promise<void> {

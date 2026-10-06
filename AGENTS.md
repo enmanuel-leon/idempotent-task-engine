@@ -88,6 +88,11 @@ Hardcoded magic string literals for domain entities, notification types, statuse
 All functions must maintain a Sonar Cognitive Complexity score of **15 or lower**.
 
 - **Clean Decomposition:** Break down orchestrators into discrete single-responsibility helper functions.
+- **Cognitive Complexity Reduction Protocol:**
+  - Coordinators and orchestrator functions must remain linear with Cognitive Complexity ≤ 5.
+  - Extract workload item execution, metric summarization, ledger verification, dataset generation,
+    and statistical calculations into discrete single-responsibility helper functions.
+  - Avoid deeply nested conditionals and multi-branch logic inside main loops or async handlers.
 - **Parameter Bundling (≤ 7 parameters - S107):** Functions must never accept more than 7 positional parameters. When 4+ parameters are needed, bundle them into a typed parameter object: `function execute(params: Readonly<ExecuteParams>)`.
 - **Optional Chaining (`?.`) & Nullish Coalescing (`??`):** Replace chained `&&` property checks with optional chaining (`a?.b === 'c'`).
 - **Early Returns:** Flatten indentation by validating preconditions and edge cases upfront.
@@ -168,6 +173,47 @@ Documentation in this repository is treated as living code and must never drift 
    - **Mathematical / State Invariants:** Formal equations and guarantees.
    - **Error Codes Matrix:** HTTP statuses mapped to machine-readable string constants.
    - **Operational Runbooks:** Explicit diagnostic commands and incident recovery steps.
+
+### 2.14 Cryptographic Randomness & PRNG Standards
+
+- **Strict Ban on `Math.random()`:** `Math.random()` is strictly prohibited across all production,
+  benchmark, worker, script, and client code due to predictability and non-uniform distribution.
+- **Node.js Cryptographic PRNG:** All backend services, queue workers, scripts, and benchmark
+  harnesses must use `randomInt` or `randomUUID` imported from `'node:crypto'`.
+- **Browser / Web Cryptographic PRNG:** Frontend React hooks and utility modules must use the
+  standard Web Crypto API (`crypto.randomUUID()`, `crypto.getRandomValues()`).
+- **Fisher-Yates Shuffle Invariant:** Array shuffling must implement an in-place Fisher-Yates
+  algorithm using cryptographic entropy (`randomInt(0, i + 1)` in Node.js,
+  `crypto.getRandomValues()` in browser). Naive `sort(() => Math.random() - 0.5)`
+  is strictly banned.
+
+### 2.15 Modern ESM & Top-Level Await Standards
+
+- **Top-Level Await Invariant:** Standalone ESM scripts (`benchmarks/*.ts`, `scripts/*.ts`,
+  `prisma/seed.ts`) must use top-level `await` wrapped in `try/catch/finally` blocks for process
+  exit handling and connection teardown.
+- **Ban on Unhandled Promises:** Never invoke async functions at top level without awaiting
+  (`main();` or `.catch(console.error)` chains without awaiting). Always structure entry points as:
+  ```ts
+  try {
+    await main();
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  } finally {
+    await cleanup();
+  }
+  ```
+
+### 2.16 Framework & JSX Hygiene
+
+- **Zod 4 Static Helper Standard:** In Zod 4+, avoid deprecated error instance methods
+  (`error.flatten()`). Always use the static helper `z.flattenError(result.error)`.
+- **JSX Whitespace Ambiguity (Sonar S6783):** In React JSX templates, never place naked text
+  literals directly adjacent to tag boundaries where whitespace interpretation may vary. Wrap text
+  in explicit `<span>` tags (e.g. `<span>LIVE STREAM</span>`).
+- **Accessible Native Modals (Sonar S6848):** Modal dialog overlays must utilize the semantic
+  HTML5 `<dialog open aria-modal="true">` element rather than generic `<div role="dialog">`.
 
 ---
 
@@ -337,6 +383,11 @@ Before declaring any engineering task complete, verify:
 - [ ] No commercial trade names hardcoded in code, placeholders, or translations.
 - [ ] No hardcoded magic strings; domain values placed in `as const` or enums.
 - [ ] All functions maintain Cognitive Complexity ≤ 15; parameter counts ≤ 7.
+- [ ] Cryptographic PRNG enforced (`node:crypto` / Web Crypto); `Math.random()` strictly banned.
+- [ ] Fisher-Yates shuffle used with crypto PRNG instead of `sort(() => Math.random() - 0.5)`.
+- [ ] Modern ESM top-level await used in entry scripts instead of `.catch()` chains.
+- [ ] Zod 4 static helpers (`z.flattenError`) used for schema error formatting.
+- [ ] Modal dialogs use native HTML5 `<dialog open aria-modal="true">` elements.
 - [ ] Currency values strictly maintained as integer cents (`priceCents`, `balanceCents`).
 - [ ] Server-side pagination enforced for unbounded collections; client-side slicing banned.
 - [ ] Table polling banned; manual refresh button implemented with visual loading state.

@@ -41,11 +41,11 @@ async function main() {
   console.log('Seeded merchant successfully:', merchant.id, merchant.name);
 }
 
-main()
-  .catch((e) => {
-    console.error('Failed to seed database:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+try {
+  await main();
+} catch (e) {
+  console.error('Failed to seed database:', e);
+  process.exit(1);
+} finally {
+  await prisma.$disconnect();
+}

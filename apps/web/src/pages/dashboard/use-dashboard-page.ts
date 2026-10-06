@@ -77,6 +77,24 @@ export interface ExecutionSummary {
   timestamp: string;
 }
 
+function generateRandomId(prefix: string, length = 8): string {
+  const uuid = crypto.randomUUID().replaceAll('-', '');
+  return prefix + uuid.slice(0, length);
+}
+
+function cryptoShuffle<T>(array: T[]): T[] {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    const j = buf[0] % (i + 1);
+    const temp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = temp;
+  }
+  return copy;
+}
+
 function calculatePercentile(numbers: number[], p: number): number {
   if (numbers.length === 0) {
     return 0;
@@ -85,6 +103,108 @@ function calculatePercentile(numbers: number[], p: number): number {
   const index = Math.ceil((p / 100) * sorted.length) - 1;
   const safeIdx = Math.max(0, Math.min(index, sorted.length - 1));
   return sorted[safeIdx];
+}
+
+interface RealisticItem {
+  key: string;
+  ref: string;
+  amount: number;
+  type: 'PAYMENT_SUCCEEDED' | 'CHARGE_REFUNDED';
+  source: string;
+}
+
+const SOURCES = ['ONLINE_CHECKOUT', 'POS_TERMINAL', 'RECURRING_BILLING', 'MOBILE_APP'];
+const AMOUNTS = [1250, 2499, 4999, 8500, 12000, 25000, 45000];
+
+function generateRealisticDataset(volume: number, dupRatio: number): RealisticItem[] {
+  const duplicateCount = Math.max(1, Math.round(volume * (dupRatio / 100)));
+  const uniqueCount = Math.max(1, volume - duplicateCount);
+
+  const items: RealisticItem[] = [];
+  for (let i = 0; i < uniqueCount; i++) {
+    const source = SOURCES[i % SOURCES.length];
+    const amount = AMOUNTS[i % AMOUNTS.length];
+    let type: 'PAYMENT_SUCCEEDED' | 'CHARGE_REFUNDED' = 'PAYMENT_SUCCEEDED';
+    let finalAmount = amount;
+    if (i % 5 === 0) {
+      type = 'CHARGE_REFUNDED';
+      finalAmount = -amount;
+    }
+
+    items.push({
+      key: generateRandomId('real_'),
+      ref: 'ord_' + source.toLowerCase() + '_' + i + '_' + generateRandomId('', 5),
+      amount: finalAmount,
+      type,
+      source,
+    });
+  }
+
+  for (let j = 0; j < duplicateCount; j++) {
+    const targetIdx = j % items.length;
+    const orig = items[targetIdx];
+    items.push({
+      key: orig.key,
+      ref: orig.ref,
+      amount: orig.amount,
+      type: orig.type,
+      source: orig.source,
+    });
+  }
+
+  return cryptoShuffle(items);
+}
+
+interface ExecutionResultItem {
+  status: number;
+  cacheHeader: string | null;
+  duration: number;
+}
+
+interface ComputeStatsParams {
+  scenarioName: string;
+  totalRequests: number;
+  results: ExecutionResultItem[];
+  totalDurationMs: number;
+}
+
+function calculateExecutionStats(params: Readonly<ComputeStatsParams>): ExecutionSummary {
+  const { scenarioName, totalRequests, results, totalDurationMs } = params;
+  const durations = results.map((r) => r.duration);
+
+  let duplicatesIntercepted = 0;
+  let leadersQueued = 0;
+
+  for (const r of results) {
+    if (r.cacheHeader === 'HIT' || r.cacheHeader === 'HIT_CONCURRENT' || r.status === 504) {
+      duplicatesIntercepted += 1;
+    } else {
+      leadersQueued += 1;
+    }
+  }
+
+  let effectiveRps = 0;
+  if (totalDurationMs > 0) {
+    effectiveRps = Math.round((totalRequests / (totalDurationMs / 1000)) * 10) / 10;
+  }
+
+  let dedupEfficiency = 0;
+  if (totalRequests > 0) {
+    dedupEfficiency = Math.round((duplicatesIntercepted / totalRequests) * 1000) / 10;
+  }
+
+  return {
+    scenarioName,
+    totalRequests,
+    leadersQueued,
+    duplicatesIntercepted,
+    dedupEfficiency,
+    totalDurationMs,
+    effectiveRps,
+    p95LatencyMs: calculatePercentile(durations, 95),
+    p99LatencyMs: calculatePercentile(durations, 99),
+    timestamp: new Date().toLocaleTimeString(),
+  };
 }
 
 export function useDashboardPage() {
@@ -207,8 +327,8 @@ export function useDashboardPage() {
     }
 
     setIsSimulatingScenarioA(true);
-    const key = 'seq_' + Math.random().toString(36).substring(2, 9);
-    const ref = 'ref_seq_' + Math.random().toString(36).substring(2, 9);
+    const key = generateRandomId('seq_');
+    const ref = generateRandomId('ref_seq_');
     const apiKey = merchantQuery.data.apiKey;
 
     const tGlobalStart = Date.now();
@@ -304,8 +424,8 @@ export function useDashboardPage() {
     setIsSimulatingBurst(true);
     setIsBurstConfirmOpen(false);
 
-    const sharedKey = 'burst_' + Math.random().toString(36).substring(2, 9);
-    const reference = 'ref_' + Math.random().toString(36).substring(2, 9);
+    const sharedKey = generateRandomId('burst_');
+    const reference = generateRandomId('ref_');
     const apiKey = merchantQuery.data.apiKey;
 
     const tGlobalStart = Date.now();
@@ -337,44 +457,18 @@ export function useDashboardPage() {
 
       const results = await Promise.all(requests);
       const totalDuration = Date.now() - tGlobalStart;
-      const durations = results.map((r) => r.duration);
 
-      let interceptedCount = 0;
-      let leaderCount = 0;
-
-      for (const r of results) {
-        if (r.cacheHeader === 'HIT' || r.cacheHeader === 'HIT_CONCURRENT' || r.status === 504) {
-          interceptedCount += 1;
-        } else {
-          leaderCount += 1;
-        }
-      }
-
-      let effectiveRps = 0;
-      if (totalDuration > 0) {
-        effectiveRps = Math.round((burstConcurrency / (totalDuration / 1000)) * 10) / 10;
-      }
-
-      let dedupEff = 0;
-      if (burstConcurrency > 0) {
-        dedupEff = Math.round((interceptedCount / burstConcurrency) * 1000) / 10;
-      }
-
-      setLastExecutionSummary({
+      const summary = calculateExecutionStats({
         scenarioName: `Scenario B (${burstConcurrency}x Concurrent Burst)`,
         totalRequests: burstConcurrency,
-        leadersQueued: leaderCount,
-        duplicatesIntercepted: interceptedCount,
-        dedupEfficiency: dedupEff,
+        results,
         totalDurationMs: totalDuration,
-        effectiveRps,
-        p95LatencyMs: calculatePercentile(durations, 95),
-        p99LatencyMs: calculatePercentile(durations, 99),
-        timestamp: new Date().toLocaleTimeString(),
       });
 
+      setLastExecutionSummary(summary);
+
       toast.success(
-        `Burst ${burstConcurrency}x sent: ${leaderCount} leader queued, ${interceptedCount} duplicate runners intercepted`,
+        `Burst ${burstConcurrency}x sent: ${summary.leadersQueued} leader queued, ${summary.duplicatesIntercepted} duplicate runners intercepted`,
       );
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['events'] });
@@ -406,65 +500,7 @@ export function useDashboardPage() {
 
     setIsSimulatingRealistic(true);
     const apiKey = merchantQuery.data.apiKey;
-    const sources = ['ONLINE_CHECKOUT', 'POS_TERMINAL', 'RECURRING_BILLING', 'MOBILE_APP'];
-    const amounts = [1250, 2499, 4999, 8500, 12000, 25000, 45000];
-
-    interface Item {
-      key: string;
-      ref: string;
-      amount: number;
-      type: 'PAYMENT_SUCCEEDED' | 'CHARGE_REFUNDED';
-      source: string;
-    }
-
-    const totalVolume = realisticVolume;
-    const duplicateCount = Math.max(1, Math.round(totalVolume * (realisticDupRatio / 100)));
-    const uniqueCount = Math.max(1, totalVolume - duplicateCount);
-
-    const items: Item[] = [];
-    for (let i = 0; i < uniqueCount; i++) {
-      const source = sources[i % sources.length];
-      const amount = amounts[i % amounts.length];
-      let type: 'PAYMENT_SUCCEEDED' | 'CHARGE_REFUNDED' = 'PAYMENT_SUCCEEDED';
-      if (i % 5 === 0) {
-        type = 'CHARGE_REFUNDED';
-      }
-
-      let finalAmount = amount;
-      if (type === 'CHARGE_REFUNDED') {
-        finalAmount = -amount;
-      }
-
-      items.push({
-        key: 'real_' + Math.random().toString(36).substring(2, 9),
-        ref:
-          'ord_' +
-          source.toLowerCase() +
-          '_' +
-          i +
-          '_' +
-          Math.random().toString(36).substring(2, 6),
-        amount: finalAmount,
-        type,
-        source,
-      });
-    }
-
-    // Interleave intentional duplicates
-    for (let j = 0; j < duplicateCount; j++) {
-      const targetIdx = j % items.length;
-      const orig = items[targetIdx];
-      items.push({
-        key: orig.key,
-        ref: orig.ref,
-        amount: orig.amount,
-        type: orig.type,
-        source: orig.source,
-      });
-    }
-
-    items.sort(() => Math.random() - 0.5);
-
+    const items = generateRealisticDataset(realisticVolume, realisticDupRatio);
     const tGlobalStart = Date.now();
 
     try {
@@ -494,43 +530,18 @@ export function useDashboardPage() {
 
       const results = await Promise.all(promises);
       const totalDuration = Date.now() - tGlobalStart;
-      const durations = results.map((r) => r.duration);
 
-      let hits = 0;
-      let queued = 0;
-      for (const r of results) {
-        if (r.cacheHeader === 'HIT' || r.cacheHeader === 'HIT_CONCURRENT' || r.status === 504) {
-          hits += 1;
-        } else {
-          queued += 1;
-        }
-      }
-
-      let effectiveRps = 0;
-      if (totalDuration > 0) {
-        effectiveRps = Math.round((items.length / (totalDuration / 1000)) * 10) / 10;
-      }
-
-      let dedupEff = 0;
-      if (items.length > 0) {
-        dedupEff = Math.round((hits / items.length) * 1000) / 10;
-      }
-
-      setLastExecutionSummary({
-        scenarioName: `Scenario C (${totalVolume} items, ${realisticDupRatio}% duplicates)`,
+      const summary = calculateExecutionStats({
+        scenarioName: `Scenario C (${realisticVolume} items, ${realisticDupRatio}% duplicates)`,
         totalRequests: items.length,
-        leadersQueued: queued,
-        duplicatesIntercepted: hits,
-        dedupEfficiency: dedupEff,
+        results,
         totalDurationMs: totalDuration,
-        effectiveRps,
-        p95LatencyMs: calculatePercentile(durations, 95),
-        p99LatencyMs: calculatePercentile(durations, 99),
-        timestamp: new Date().toLocaleTimeString(),
       });
 
+      setLastExecutionSummary(summary);
+
       toast.success(
-        `Realistic Workload: ${queued} transactions queued, ${hits} intentional duplicates intercepted!`,
+        `Realistic Workload: ${summary.leadersQueued} transactions queued, ${summary.duplicatesIntercepted} intentional duplicates intercepted!`,
       );
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['events'] });

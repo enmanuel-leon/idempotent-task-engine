@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { Queue, type QueueOptions } from 'bullmq';
 import { QUEUE_NAMES, ENGINE_LIMITS } from '../constants/engine.constants.js';
 import { createRedisConnection } from './redis.js';
@@ -12,8 +13,8 @@ export function calculateFullJitterDelay(attemptsMade: number): number {
   if (exponent < 0) {
     exponent = 0;
   }
-  const ceiling = baseDelay * Math.pow(2, exponent);
-  return Math.floor(Math.random() * ceiling);
+  const ceiling = Math.floor(baseDelay * Math.pow(2, exponent));
+  return randomInt(0, Math.max(1, ceiling));
 }
 
 export interface WebhookJobData {

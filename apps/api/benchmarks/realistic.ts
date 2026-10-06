@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
@@ -23,12 +23,30 @@ interface WorkloadItem {
   isDuplicate: boolean;
 }
 
+interface WorkloadResult {
+  status: number;
+  cacheHeader: string | null;
+  durationMs: number;
+  isDuplicate: boolean;
+  reference: string;
+}
+
 const SOURCES = ['ONLINE_CHECKOUT', 'POS_TERMINAL', 'RECURRING_BILLING', 'MOBILE_APP'];
 const AMOUNTS = [1250, 2499, 4999, 8500, 12000, 25000, 45000];
 
-async function runRealisticWorkload() {
+function shuffleArray<T>(array: T[]): T[] {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = randomInt(0, i + 1);
+    const temp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = temp;
+  }
+  return copy;
+}
+
+function generateRealisticWorkload(baseCount = 20, duplicateCount = 10): WorkloadItem[] {
   const workload: WorkloadItem[] = [];
-  const baseCount = 20;
 
   for (let i = 0; i < baseCount; i++) {
     const key = 'real_' + randomUUID();
@@ -36,17 +54,13 @@ async function runRealisticWorkload() {
     const amount = AMOUNTS[i % AMOUNTS.length];
 
     let eventType: 'PAYMENT_SUCCEEDED' | 'CHARGE_REFUNDED' = 'PAYMENT_SUCCEEDED';
+    let calculatedAmount = amount;
     if (i % 7 === 0) {
       eventType = 'CHARGE_REFUNDED';
-    }
-
-    let calculatedAmount = amount;
-    if (eventType === 'CHARGE_REFUNDED') {
       calculatedAmount = -amount;
     }
 
-    const ref =
-      'ord_' + source.toLowerCase() + '_' + i + '_' + Math.random().toString(36).substring(2, 7);
+    const ref = 'ord_' + source.toLowerCase() + '_' + i + '_' + randomUUID().substring(0, 5);
 
     workload.push({
       idempotencyKey: key,
@@ -58,7 +72,7 @@ async function runRealisticWorkload() {
     });
   }
 
-  for (let j = 0; j < 10; j++) {
+  for (let j = 0; j < duplicateCount; j++) {
     const original = workload[j * 2];
     workload.push({
       idempotencyKey: original.idempotencyKey,
@@ -70,55 +84,49 @@ async function runRealisticWorkload() {
     });
   }
 
-  workload.sort(() => Math.random() - 0.5);
+  return shuffleArray(workload);
+}
 
-  console.log(
-    `Dispatching ${workload.length} concurrent requests (20 unique + 10 intentional duplicates)...\n`,
-  );
-
-  const tStart = Date.now();
-  const promises = workload.map(async (item) => {
-    const reqStart = Date.now();
-    try {
-      const res = await fetch(TARGET_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'idempotency-key': item.idempotencyKey,
-          'x-api-key': API_KEY,
+async function executeWorkloadItem(item: WorkloadItem): Promise<WorkloadResult> {
+  const reqStart = Date.now();
+  try {
+    const res = await fetch(TARGET_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'idempotency-key': item.idempotencyKey,
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({
+        eventType: item.eventType,
+        amountCents: item.amountCents,
+        reference: item.reference,
+        metadata: {
+          source: item.source,
+          simulatedDuplicate: item.isDuplicate,
         },
-        body: JSON.stringify({
-          eventType: item.eventType,
-          amountCents: item.amountCents,
-          reference: item.reference,
-          metadata: {
-            source: item.source,
-            simulatedDuplicate: item.isDuplicate,
-          },
-        }),
-      });
+      }),
+    });
 
-      return {
-        status: res.status,
-        cacheHeader: res.headers.get('x-cache'),
-        durationMs: Date.now() - reqStart,
-        isDuplicate: item.isDuplicate,
-        reference: item.reference,
-      };
-    } catch {
-      return {
-        status: 500,
-        cacheHeader: 'ERROR',
-        durationMs: Date.now() - reqStart,
-        isDuplicate: item.isDuplicate,
-        reference: item.reference,
-      };
-    }
-  });
+    return {
+      status: res.status,
+      cacheHeader: res.headers.get('x-cache'),
+      durationMs: Date.now() - reqStart,
+      isDuplicate: item.isDuplicate,
+      reference: item.reference,
+    };
+  } catch {
+    return {
+      status: 500,
+      cacheHeader: 'ERROR',
+      durationMs: Date.now() - reqStart,
+      isDuplicate: item.isDuplicate,
+      reference: item.reference,
+    };
+  }
+}
 
-  const results = await Promise.all(promises);
-  const totalDuration = Date.now() - tStart;
-
+function summarizeWorkloadResults(results: WorkloadResult[], totalDurationMs: number): void {
   let cacheHits = 0;
   let leaderQueued = 0;
   let timeouts = 0;
@@ -134,16 +142,15 @@ async function runRealisticWorkload() {
   }
 
   console.log('--- Realistic Workload Results ---');
-  console.log(`Total Time Elapsed: ${totalDuration}ms`);
+  console.log(`Total Time Elapsed: ${totalDurationMs}ms`);
   console.log(`Leaders Queued (HTTP 202): ${leaderQueued} (Expected: 20)`);
   console.log(`Duplicates Intercepted: ${cacheHits} (Expected: 10)`);
   if (timeouts > 0) {
     console.log(`Timeouts (HTTP 504): ${timeouts}`);
   }
+}
 
-  console.log('\nAwaiting 1500ms for worker transactional settlement in PostgreSQL...');
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
+async function verifyLedgerIntegrity(): Promise<void> {
   console.log('--- Verifying PostgreSQL Ledger in task_engine schema ---');
   const adapter = new PrismaPg({ connectionString: DB_URL }, { schema: 'task_engine' });
   const prisma = new PrismaClient({ adapter });
@@ -184,4 +191,28 @@ async function runRealisticWorkload() {
   }
 }
 
-runRealisticWorkload().catch(console.error);
+async function runRealisticWorkload() {
+  const workload = generateRealisticWorkload(20, 10);
+  console.log(
+    `Dispatching ${workload.length} concurrent requests (20 unique + 10 intentional duplicates)...\n`,
+  );
+
+  const tStart = Date.now();
+  const promises = workload.map((item) => executeWorkloadItem(item));
+  const results = await Promise.all(promises);
+  const totalDuration = Date.now() - tStart;
+
+  summarizeWorkloadResults(results, totalDuration);
+
+  console.log('\nAwaiting 1500ms for worker transactional settlement in PostgreSQL...');
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  await verifyLedgerIntegrity();
+}
+
+try {
+  await runRealisticWorkload();
+} catch (err) {
+  console.error(err);
+  process.exit(1);
+}

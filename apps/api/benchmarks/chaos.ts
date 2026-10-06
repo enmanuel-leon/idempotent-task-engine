@@ -1,4 +1,5 @@
 import autocannon from 'autocannon';
+import { randomInt } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
@@ -34,7 +35,7 @@ const instance = autocannon(
     },
     setupClient: (client) => {
       client.on('body', () => {
-        const randomIndex = Math.floor(Math.random() * KEY_POOL_SIZE);
+        const randomIndex = randomInt(0, KEY_POOL_SIZE);
         const selectedKey = keyPool[randomIndex];
         client.setHeaders({
           'content-type': 'application/json',

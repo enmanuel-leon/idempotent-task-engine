@@ -221,7 +221,7 @@ export async function webhooksRoutes(fastify: FastifyInstance) {
     if (!headerResult.success) {
       return reply.code(400).send({
         error: 'INVALID_HEADERS',
-        details: headerResult.error.flatten(),
+        details: z.flattenError(headerResult.error),
       });
     }
 
@@ -229,7 +229,7 @@ export async function webhooksRoutes(fastify: FastifyInstance) {
     if (!bodyResult.success) {
       return reply.code(400).send({
         error: 'INVALID_BODY',
-        details: bodyResult.error.flatten(),
+        details: z.flattenError(bodyResult.error),
       });
     }
 

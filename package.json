@@ -31,7 +31,7 @@
     "bench:chaos": "pnpm --filter api bench:chaos",
     "postinstall": "pnpm prisma:generate",
     "prepare": "husky",
-    "test:coverage": "turbo test:coverage",
+    "test:coverage": "turbo test:coverage && node scripts/normalize-coverage.mjs",
     "db:purge": "pnpm --filter api db:purge",
     "test:reset": "pnpm --filter api test:reset",
     "bench:realistic": "pnpm --filter api bench:realistic",
