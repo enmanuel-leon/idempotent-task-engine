@@ -40,24 +40,24 @@ flowchart TB
         end
     end
 
-    SPA -->|SSE Metrics Connection| SSE
-    SPA -->|HTTP Webhook Bursts| Gateway
-    SPA -->|Paginated Audit Queries| EventsAPI
-    SPA -->|Purge & Replay Triggers| AdminAPI
-    SPA -.->|Direct Operator Link| BullBoard
+    SPA -->|"SSE Metrics Connection"| SSE
+    SPA -->|"HTTP Webhook Bursts"| Gateway
+    SPA -->|"Paginated Audit Queries"| EventsAPI
+    SPA -->|"Purge & Replay Triggers"| AdminAPI
+    SPA -.->|"Direct Operator Link"| BullBoard
 
-    Gateway -->|Lock Acquisition & Cache Lookup| Locks
-    Gateway -->|Fast-Path Cache Hit| Cache
-    Gateway -->|Subscribe to In-Flight Worker| PubSub
-    Gateway -->|Push Task (jobId = normalizedKey)| Queues
-    Gateway -->|Write Initial Audit Record| Schema
+    Gateway -->|"Lock Acquisition & Cache Lookup"| Locks
+    Gateway -->|"Fast-Path Cache Hit"| Cache
+    Gateway -->|"Subscribe to In-Flight Worker"| PubSub
+    Gateway -->|"Push Task (jobId = normalizedKey)"| Queues
+    Gateway -->|"Write Initial Audit Record"| Schema
 
-    Queues -->|Dispatch Job to Worker| Worker
-    Worker -->|ACID DB Transaction Increment| Schema
-    Worker -->|Persist Response Payload| Cache
-    Worker -->|Broadcast Completion Event| PubSub
-    Worker -->|Release Distributed Mutex| Locks
-    Worker -->|Dead-Letter Failed Tasks (> 5 tries)| Queues
+    Queues -->|"Dispatch Job to Worker"| Worker
+    Worker -->|"ACID DB Transaction Increment"| Schema
+    Worker -->|"Persist Response Payload"| Cache
+    Worker -->|"Broadcast Completion Event"| PubSub
+    Worker -->|"Release Distributed Mutex"| Locks
+    Worker -->|"Dead-Letter Failed Tasks (> 5 retries)"| Queues
 ```
 
 ---

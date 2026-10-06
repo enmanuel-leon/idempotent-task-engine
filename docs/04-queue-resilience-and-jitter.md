@@ -12,14 +12,14 @@ High-throughput transactional systems face transient downstream outages (e.g., b
 stateDiagram-v2
     [*] --> IngestionPending: Webhook Accepted (HTTP 202)
 
-    IngestionPending --> EnqueuedInBullMQ: Job added with jobId = normalizedKey
+    IngestionPending --> EnqueuedInBullMQ: Job added with normalizedKey
 
-    EnqueuedInBullMQ --> WorkerProcessing: Worker dequeues job (concurrency: 5)
+    EnqueuedInBullMQ --> WorkerProcessing: Worker dequeues job
 
     state WorkerProcessing {
         [*] --> CheckChaosFlags
-        CheckChaosFlags --> SimulateGatewayFailure: flakyGateway active (25% rate)
-        CheckChaosFlags --> SimulateDbLatency: dbLatency active (+800ms sleep)
+        CheckChaosFlags --> SimulateGatewayFailure: Flaky Gateway Active
+        CheckChaosFlags --> SimulateDbLatency: DB Latency Active
         CheckChaosFlags --> ExecuteTransaction: Standard Execution
         SimulateDbLatency --> ExecuteTransaction
     }
@@ -27,15 +27,15 @@ stateDiagram-v2
     WorkerProcessing --> SettlementCommitted: PostgreSQL Transaction Succeeds
 
     state SettlementCommitted {
-        [*] --> IncrementBalance: MerchantAccount.balanceCents += amount
-        IncrementBalance --> InsertLedger: Transaction record inserted
-        InsertLedger --> UpdateEvent: WebhookEvent.status = COMPLETED
+        [*] --> IncrementBalance: MerchantAccount balance increment
+        IncrementBalance --> InsertLedger: Transaction record created
+        InsertLedger --> UpdateEvent: WebhookEvent COMPLETED
     }
 
-    SettlementCommitted --> CacheAndPublish: Cache Response (24h) & Publish Completion
+    SettlementCommitted --> CacheAndPublish: Cache Response and Publish Completion
     CacheAndPublish --> [*]: Execution Pipeline Finished
 
-    WorkerProcessing --> EvaluateRetry: Exception Thrown (e.g. 500 Gateway Error)
+    WorkerProcessing --> EvaluateRetry: Exception Thrown (e.g. Gateway 500)
 
     state EvaluateRetry {
         [*] --> CheckAttemptCount
@@ -43,15 +43,15 @@ stateDiagram-v2
         CheckAttemptCount --> RouteToDLQ: attemptsMade >= 5
     }
 
-    CalculateJitter --> DelayedBackoffQueue: Delay = random(0, 1000 * 2^attempts)
-    DelayedBackoffQueue --> WorkerProcessing: Jitter Timer Elapsed
+    CalculateJitter --> DelayedBackoffQueue: Jitter Backoff Timer Applied
+    DelayedBackoffQueue --> WorkerProcessing: Backoff Delay Elapsed
 
     RouteToDLQ --> DeadLetterQueue: Enqueued into webhooks-dlq
-    DeadLetterQueue --> UpdateEventDLQ: WebhookEvent.status = DEAD_LETTER + Error Details
+    DeadLetterQueue --> UpdateEventDLQ: WebhookEvent DEAD_LETTER
 
-    UpdateEventDLQ --> AwaitingOperatorAction: Operator Notified via Telemetry UI
+    UpdateEventDLQ --> AwaitingOperatorAction: Operator Alerted via Telemetry UI
 
-    AwaitingOperatorAction --> EnqueuedInBullMQ: Admin Replay Action (POST /api/v1/admin/dlq/replay)
+    AwaitingOperatorAction --> EnqueuedInBullMQ: Admin Replay Action Triggered
 ```
 
 ---
