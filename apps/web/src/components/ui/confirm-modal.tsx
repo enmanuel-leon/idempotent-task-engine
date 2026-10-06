@@ -57,7 +57,7 @@ export function ConfirmModal({
       <dialog
         open
         aria-modal="true"
-        className="w-full max-w-md p-6 rounded-2xl border border-slate-800 bg-[#0E1017] shadow-2xl space-y-4 font-sans m-0 text-inherit"
+        className="relative m-auto w-full max-w-md p-6 rounded-2xl border border-slate-800 bg-[#0E1017] shadow-2xl space-y-4 font-sans text-inherit"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
